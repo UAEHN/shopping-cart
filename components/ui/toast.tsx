@@ -1,20 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import { Slide, ToastContainer, toast as reactToast, cssTransition } from 'react-toastify';
+import { Slide, ToastContainer, toast as reactToast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useTheme } from '@/components/theme-provider';
 
 // منع ظهور نفس الإشعار أكثر من مرة في فترة زمنية محددة
 const activeToasts = new Set<string>();
 const TOAST_DEBOUNCE_TIME = 1500; // تقليل فترة منع التكرار إلى 1.5 ثانية
-
-// تأثير انتقالي مخصص لتحسين الإشعارات
-const slideTransition = cssTransition({
-  enter: 'animate__animated animate__slideInRight',
-  exit: 'animate__animated animate__slideOutRight',
-  collapseDuration: 200, // تسريع وقت الخروج
-});
 
 // مسح جميع الإشعارات الحالية
 export const clearAllToasts = () => {
@@ -76,14 +69,12 @@ export function Toaster() {
   );
 }
 
-type ToastProps = {
-  message: string;
-  type?: 'success' | 'error' | 'info' | 'warning';
-  autoClose?: number;
-};
-
 // منع التكرار للإشعارات
-const debounceToast = (message: string, toastFunc: (message: string, options?: any) => void, autoCloseTime?: number) => {
+const debounceToast = (
+  message: string, 
+  toastFunc: (message: string, options?: Record<string, unknown>) => void, 
+  autoCloseTime?: number
+) => {
   // تجاهل الإشعار إذا كان نفس الإشعار قيد التنفيذ
   const toastKey = message.toLowerCase().trim();
   if (activeToasts.has(toastKey)) {
@@ -116,8 +107,7 @@ export const toast = {
     debounceToast(message, (msg, options) => 
       reactToast.success(msg, {
         ...options,
-        icon: '✓',
-        progressStyle: { background: '#10b981' }
+        icon: undefined,
       }),
       autoClose
     );
@@ -126,8 +116,7 @@ export const toast = {
     debounceToast(message, (msg, options) => 
       reactToast.error(msg, {
         ...options,
-        icon: '✗',
-        progressStyle: { background: '#ef4444' },
+        icon: undefined,
         autoClose: autoClose || 2500 // السماح بوقت أطول للأخطاء
       }),
       autoClose
@@ -137,8 +126,7 @@ export const toast = {
     debounceToast(message, (msg, options) => 
       reactToast.info(msg, {
         ...options,
-        icon: 'ℹ',
-        progressStyle: { background: '#3b82f6' }
+        icon: undefined,
       }),
       autoClose
     );
@@ -147,8 +135,7 @@ export const toast = {
     debounceToast(message, (msg, options) => 
       reactToast.warning(msg, {
         ...options,
-        icon: '⚠',
-        progressStyle: { background: '#f59e0b' }
+        icon: undefined,
       }),
       autoClose
     );
