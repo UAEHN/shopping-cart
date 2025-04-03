@@ -1,3 +1,15 @@
+// Server Component لتوليد الصفحات الثابتة
+import ListClient from './client';
+
+export default ListClient;
+
+// هذه الوظيفة ضرورية لتوليد الصفحات الثابتة للمسارات الديناميكية عند استخدام output: 'export'
+export async function generateStaticParams() {
+  // في البيئة الإنتاجية، سنولد متغير وهمي لتجنب المشكلات
+  // في التطبيق الحقيقي سنحتاج لاستخراج البيانات من قاعدة البيانات
+  return [{ id: 'placeholder' }];
+}
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -29,13 +41,6 @@ interface ListDetails {
   created_at: string;
   updated_at: string;
   items: ListItem[];
-}
-
-// هذه الوظيفة ضرورية لتوليد الصفحات الثابتة للمسارات الديناميكية عند استخدام output: 'export'
-export async function generateStaticParams() {
-  // في البيئة الإنتاجية، سنولد متغير وهمي لتجنب المشكلات
-  // في التطبيق الحقيقي سنحتاج لاستخراج البيانات من قاعدة البيانات
-  return [{ id: 'placeholder' }];
 }
 
 export default function ListDetailsPage() {
