@@ -1,17 +1,4 @@
-// Server Component لتوليد الصفحات الثابتة
-import ListClient from './client';
-
-export default ListClient;
-
-// هذه الوظيفة ضرورية لتوليد الصفحات الثابتة للمسارات الديناميكية عند استخدام output: 'export'
-export async function generateStaticParams() {
-  // في البيئة الإنتاجية، سنولد متغير وهمي لتجنب المشكلات
-  // في التطبيق الحقيقي سنحتاج لاستخراج البيانات من قاعدة البيانات
-  return [{ id: 'placeholder' }];
-}
-
 'use client';
-
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useParams } from 'next/navigation';
@@ -23,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { ShoppingCart, Clock, CheckCircle, Package, ArrowLeft, Share2, Trash2, RefreshCw, Plus, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+
 
 interface ListItem {
   id: string;
