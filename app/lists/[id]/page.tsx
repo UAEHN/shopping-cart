@@ -117,18 +117,158 @@ export default function ListDetailsPage() {
       console.log(`إعداد اشتراك الوقت الفعلي لقائمة المشتريات: ${listId}`);
       
       try {
-        // إنشاء قناة لتحديثات القائمة والعناصر
+        // استخدام قناة واحدة للاستماع للتغييرات من جميع الجداول المتعلقة بالقائمة
         const channel = supabase
-          .channel(`list-updates-${listId}`, {
-            config: {
-              broadcast: { self: true },
-              presence: { key: `user-${currentUser}` }
-            }
-          })
+          .channel(`list-updates-${listId}`)
           .on(
             'postgres_changes',
             {
               event: '*',
+              schema: 'public',
+              table: 'items',
+              filter: `list_id=eq.${listId}`
+            },
+            (payload) => {
+              console.log(`تم استلام تحديث مباشر لعناصر القائمة ${listId}:`, payload);
+              
+              if (payload.eventType === 'INSERT' && payload.new) {
+                // إضافة عنصر جديد للقائمة
+                setListDetails((prevDetails) => {
+                  if (!prevDetails) return prevDetails;
+                  
+                  const newItem = payload.new as ListItem;
+                  
+                  // تجنب الإضافة المكررة
+                  if (prevDetails.items.some(item => item.id === newItem.id)) {
+                    return prevDetails;
+                  }
+                  
+                  toast.info(`تمت إضافة منتج جديد: ${newItem.name}`, 1500);
+                  
+                  return {
+                    ...prevDetails,
+                    items: [...prevDetails.items, newItem]
+                  };
+                });
+              } else if (payload.eventType === 'UPDATE' && payload.new) {
+                // تحديث العنصر المحدد مباشرة في الحالة المحلية
+                const updatedItem = payload.new as ListItem;
+                
+                setListDetails((prevDetails) => {
+                  if (!prevDetails) return prevDetails;
+                  
+                  // فحص إذا كان هناك تغيير فعلي قبل التحديث
+                  const existingItem = prevDetails.items.find(item => item.id === updatedItem.id);
+                  if (!existingItem || 
+                      (existingItem.purchased === updatedItem.purchased && 
+                       existingItem.name === updatedItem.name)) {
+                    return prevDetails; // لا يوجد تغيير حقيقي، تجنب إعادة العرض غير الضرورية
+                  }
+                  
+                  // تحديث العنصر في القائمة المحلية
+                  const updatedItems = prevDetails.items.map((item) => {
+                    if (item.id === updatedItem.id) {
+                      // عرض إشعار إذا تغيرت حالة الشراء
+                      if (item.purchased !== updatedItem.purchased) {
+                        // تحديد من قام بالتغيير (إذا كان شخص آخر)
+                        const isCurrentUserAction = payload.commit_timestamp === null;
+                        
+                        if (!isCurrentUserAction) {
+                          const actor = prevDetails.creator_username === currentUser ? 'المستلم' : 'المرسل';
+                          toast.info(
+                            updatedItem.purchased
+                              ? `قام ${actor} بشراء: ${updatedItem.name}`
+                              : `قام ${actor} بإلغاء شراء: ${updatedItem.name}`,
+                            1500
+                          );
+                        }
+                      }
+                      
+                      // تحديث العنصر بالبيانات الجديدة
+                      return { ...item, ...updatedItem };
+                    }
+                    return item;
+                  });
+                  
+                  return {
+                    ...prevDetails,
+                    items: updatedItems
+                  };
+                });
+                
+                // فحص تحديث حالة القائمة (نقل هذا الجزء خارج setListDetails لتجنب إعادة العرض المزدوجة)
+                setListDetails((prevDetails) => {
+                  if (!prevDetails) return prevDetails;
+                  
+                  // حساب حالة القائمة الجديدة بناءً على العناصر المحدثة
+                  const allPurchased = prevDetails.items.every(item => {
+                    // اعتبار العنصر المحدث إذا كان هو العنصر المغير حالياً
+                    if (item.id === updatedItem.id) {
+                      return updatedItem.purchased;
+                    }
+                    return item.purchased;
+                  });
+                  
+                  const anyPurchased = prevDetails.items.some(item => {
+                    if (item.id === updatedItem.id) {
+                      return updatedItem.purchased;
+                    }
+                    return item.purchased;
+                  });
+                  
+                  let newStatus = prevDetails.status;
+                  
+                  if (allPurchased && prevDetails.items.length > 0) {
+                    newStatus = 'completed';
+                  } else if (anyPurchased) {
+                    newStatus = 'opened';
+                  } else {
+                    newStatus = 'new';
+                  }
+                  
+                  // عدم التحديث إذا لم تتغير الحالة
+                  if (newStatus === prevDetails.status) {
+                    return prevDetails;
+                  }
+                  
+                  // تحديث حالة القائمة في قاعدة البيانات
+                  console.log(`تحديث حالة القائمة من ${prevDetails.status} إلى ${newStatus}`);
+                  supabase
+                    .from('lists')
+                    .update({ status: newStatus })
+                    .eq('id', listId)
+                    .then(({ error }) => {
+                      if (error) {
+                        console.error('خطأ في تحديث حالة القائمة:', error);
+                      }
+                    });
+                  
+                  return {
+                    ...prevDetails,
+                    status: newStatus
+                  };
+                });
+              } else if (payload.eventType === 'DELETE' && payload.old) {
+                // حذف العنصر من القائمة
+                const deletedItem = payload.old as ListItem;
+                
+                setListDetails((prevDetails) => {
+                  if (!prevDetails) return prevDetails;
+                  
+                  toast.info(`تم حذف منتج: ${deletedItem.name}`, 1500);
+                  
+                  return {
+                    ...prevDetails,
+                    items: prevDetails.items.filter(item => item.id !== deletedItem.id)
+                  };
+                });
+              }
+            }
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
               schema: 'public',
               table: 'lists',
               filter: `id=eq.${listId}`
@@ -137,12 +277,17 @@ export default function ListDetailsPage() {
               console.log(`تم استلام تحديث مباشر لقائمة المشتريات ${listId}:`, payload);
               
               // تحديث حالة القائمة مباشرة دون إعادة تحميل كاملة
-              if (payload.eventType === 'UPDATE' && payload.new) {
+              if (payload.new) {
                 setListDetails((prevDetails) => {
                   if (!prevDetails) return prevDetails;
                   
                   // تحديث حالة القائمة بالبيانات الجديدة
                   const newListData = payload.new as any;
+                  
+                  // تجنب التحديث إذا لم تتغير البيانات
+                  if (prevDetails.status === newListData.status) {
+                    return prevDetails;
+                  }
                   
                   // عرض إشعار بتغيير الحالة إذا تغيرت
                   if (prevDetails.status !== newListData.status) {
@@ -172,145 +317,18 @@ export default function ListDetailsPage() {
               }
             }
           )
-          .on(
-            'postgres_changes',
-            {
-              event: '*',
-              schema: 'public',
-              table: 'items',
-              filter: `list_id=eq.${listId}`
-            },
-            (payload) => {
-              console.log(`تم استلام تحديث مباشر لعناصر القائمة ${listId}:`, payload);
-              
-              if (payload.eventType === 'UPDATE' && payload.new) {
-                // تحديث العنصر المحدد مباشرة في الحالة المحلية
-                const updatedItem = payload.new as any;
-                
-                setListDetails((prevDetails) => {
-                  if (!prevDetails) return prevDetails;
-                  
-                  // تحديث العنصر في القائمة المحلية
-                  const updatedItems = prevDetails.items.map((item) => {
-                    if (item.id === updatedItem.id) {
-                      // عرض إشعار إذا تغيرت حالة الشراء
-                      if (item.purchased !== updatedItem.purchased) {
-                        // تحديد من قام بالتغيير (إذا كان شخص آخر)
-                        const isCurrentUserCreator = prevDetails.creator_username === currentUser;
-                        const isCurrentUserRecipient = prevDetails.recipient_username === currentUser;
-                        const actor = isCurrentUserCreator ? 'المستلم' : 'المرسل';
-                        
-                        if ((isCurrentUserCreator || isCurrentUserRecipient) && !payload.commit_timestamp) {
-                          toast.info(
-                            updatedItem.purchased
-                              ? `قام ${actor} بشراء: ${updatedItem.name}`
-                              : `قام ${actor} بإلغاء شراء: ${updatedItem.name}`,
-                            1500
-                          );
-                        }
-                      }
-                      
-                      // تحديث العنصر بالبيانات الجديدة
-                      return { ...item, ...updatedItem };
-                    }
-                    return item;
-                  });
-                  
-                  // حساب حالة القائمة الجديدة بناءً على العناصر المحدثة
-                  const allPurchased = updatedItems.every(item => item.purchased);
-                  const nonePurchased = updatedItems.every(item => !item.purchased);
-                  const someSelected = updatedItems.some(item => item.purchased);
-                  
-                  let newStatus = prevDetails.status;
-                  
-                  if (allPurchased && updatedItems.length > 0) {
-                    newStatus = 'completed';
-                  } else if (someSelected) {
-                    newStatus = 'opened';
-                  } else if (nonePurchased) {
-                    newStatus = 'new';
-                  }
-                  
-                  // تحديث حالة القائمة في قاعدة البيانات إذا تغيرت
-                  if (newStatus !== prevDetails.status) {
-                    console.log(`تحديث حالة القائمة من ${prevDetails.status} إلى ${newStatus}`);
-                    supabase
-                      .from('lists')
-                      .update({ status: newStatus })
-                      .eq('id', listId)
-                      .then(({ error }) => {
-                        if (error) {
-                          console.error('خطأ في تحديث حالة القائمة:', error);
-                        }
-                      });
-                  }
-                  
-                  return {
-                    ...prevDetails,
-                    items: updatedItems,
-                    status: newStatus
-                  };
-                });
-              } else if (payload.eventType === 'INSERT' && payload.new) {
-                // إضافة عنصر جديد إلى القائمة
-                const newItem = payload.new as any;
-                
-                setListDetails((prevDetails) => {
-                  if (!prevDetails) return prevDetails;
-                  
-                  // التأكد من عدم وجود العنصر بالفعل في القائمة
-                  const itemExists = prevDetails.items.some((item) => item.id === newItem.id);
-                  
-                  if (!itemExists) {
-                    toast.success(`تمت إضافة منتج جديد: ${newItem.name}`, 1500);
-                    return {
-                      ...prevDetails,
-                      items: [...prevDetails.items, newItem]
-                    };
-                  }
-                  
-                  return prevDetails;
-                });
-              } else if (payload.eventType === 'DELETE' && payload.old) {
-                // حذف عنصر من القائمة
-                const deletedItem = payload.old as any;
-                
-                setListDetails((prevDetails) => {
-                  if (!prevDetails) return prevDetails;
-                  
-                  toast.info(`تم حذف منتج: ${deletedItem.name}`, 1500);
-                  
-                  const updatedItems = prevDetails.items.filter((item) => item.id !== deletedItem.id);
-                  
-                  return {
-                    ...prevDetails,
-                    items: updatedItems
-                  };
-                });
-              }
-            }
-          )
           .subscribe((status) => {
-            console.log(`حالة الاشتراك للقائمة ${listId}:`, status);
-            if (status === 'SUBSCRIBED') {
-              console.log(`تم الاشتراك بنجاح للقائمة ${listId}`);
-            } else if (status === 'CHANNEL_ERROR') {
-              console.error(`فشل في الاشتراك للقائمة ${listId}:`, status);
-              // في حالة فشل الاشتراك، نحاول إعادة تحميل البيانات مرة واحدة لضمان حصولنا على أحدث المعلومات
-              loadListDetails();
-            }
+            console.log(`حالة اشتراك القائمة ${listId}:`, status);
           });
-
-        // وظيفة التنظيف عند إزالة المكون
+        
+        // تنظيف الاشتراك عند مغادرة الصفحة
         return () => {
-          console.log(`إلغاء اشتراك الوقت الفعلي للقائمة: ${listId}`);
+          console.log(`إلغاء اشتراك الوقت الفعلي لقائمة المشتريات: ${listId}`);
           supabase.removeChannel(channel);
         };
       } catch (error) {
-        console.error(`خطأ في إعداد اشتراك الوقت الفعلي للقائمة ${listId}:`, error);
-        // في حالة حدوث خطأ في إعداد الاشتراك، نحاول تحميل البيانات بالطريقة التقليدية
-        loadListDetails();
-        return () => {}; // وظيفة تنظيف فارغة في حالة الخطأ
+        console.error('خطأ في إعداد اشتراك الوقت الفعلي:', error);
+        return () => {}; // إرجاع وظيفة تنظيف فارغة
       }
     };
     
@@ -407,7 +425,7 @@ export default function ListDetailsPage() {
         throw new Error('العنصر غير موجود');
       }
       
-      // تحديث الحالة المحلية فوراً لتجربة مستخدم سريعة
+      // تحديث الحالة المحلية فوراً لتجربة مستخدم سريعة (استجابة فورية)
       const newPurchasedState = !targetItem.purchased;
       const newPurchasedAt = newPurchasedState ? new Date().toISOString() : null;
       
@@ -426,57 +444,32 @@ export default function ListDetailsPage() {
           return item;
         });
         
-        // حساب الحالة الجديدة للقائمة
-        const allPurchased = newItems.every(item => item.purchased);
-        const anyPurchased = newItems.some(item => item.purchased);
-        let newStatus = prev.status;
-        
-        if (allPurchased && newItems.length > 0) {
-          newStatus = 'completed';
-        } else if (anyPurchased) {
-          newStatus = 'opened';
-        } else {
-          newStatus = 'new';
-        }
-        
         return { 
           ...prev, 
-          items: newItems,
-          status: newStatus // تحديث حالة القائمة محلياً
+          items: newItems
         };
       });
       
-      // تحديث قاعدة البيانات بالتوازي (دون انتظار)
-      const updatePromises = [];
+      // إرسال التحديث إلى قاعدة البيانات
+      const { error } = await supabase
+        .from('items')
+        .update({
+          purchased: newPurchasedState,
+          purchased_at: newPurchasedAt
+        })
+        .eq('id', productId);
       
-      // تحديث العنصر
-      updatePromises.push(
-        supabase
-          .from('items')
-          .update({
-            purchased: newPurchasedState,
-            purchased_at: newPurchasedAt
-          })
-          .eq('id', productId)
-      );
-      
-      // الانتظار حتى يكتمل تحديث العنصر
-      const [itemUpdateResult] = await Promise.all(updatePromises);
-      
-      if (itemUpdateResult.error) {
-        console.error('خطأ في تحديث حالة العنصر:', itemUpdateResult.error);
-        throw itemUpdateResult.error;
+      if (error) {
+        // تبسيط معالجة الخطأ
+        console.error('خطأ في تحديث حالة العنصر:', error.message);
+        throw new Error(error.message || 'خطأ في تحديث حالة العنصر');
       }
       
-      // يتم تحديث حالة القائمة عبر الاشتراك بالوقت الفعلي تلقائياً
-      
-      // إظهار إشعار سريع (اختياري)
-      toast.success(
-        newPurchasedState ? 'تم تحديد العنصر كمشترى' : 'تم إلغاء تحديد العنصر', 
-        1000
-      );
+      // لا نقوم بإظهار إشعار هنا لأن الإشعار سيتم إظهاره عند استلام تحديث الـ realtime
     } catch (error) {
-      console.error('خطأ في تحديث حالة العنصر:', error);
+      // معالجة الخطأ بشكل مبسط
+      const errorMsg = error instanceof Error ? error.message : 'خطأ غير معروف';
+      console.error('خطأ في تحديث حالة العنصر:', errorMsg);
       toast.error('حدث خطأ أثناء تحديث حالة العنصر', 2000);
       
       // استرجاع القائمة في حالة الخطأ
