@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import { Input } from '@/components/ui/input';
@@ -23,11 +23,7 @@ export default function ContactsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [contacts, setContacts] = useState<Contact[]>([]);
   
-  useEffect(() => {
-    loadContacts();
-  }, [router]);
-  
-  const loadContacts = async () => {
+  const loadContacts = useCallback(async () => {
     try {
       setIsLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
@@ -59,7 +55,11 @@ export default function ContactsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [router]);
+  
+  useEffect(() => {
+    loadContacts();
+  }, [loadContacts]);
   
   const handleContactAdded = () => {
     // إعادة تحميل جهات الاتصال بعد إضافة جهة جديدة

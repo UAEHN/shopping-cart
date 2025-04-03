@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/services/supabase';
@@ -45,6 +45,75 @@ export default function ListDetailsPage() {
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
+  const loadListDetails = useCallback(async () => {
+    try {
+      if (!listId) {
+        toast.error('معرّف القائمة غير صالح');
+        router.push('/lists');
+        return;
+      }
+      
+      console.log('Loading list details for ID:', listId);
+      console.log('List ID type:', typeof listId);
+      
+      // جلب تفاصيل القائمة
+      const { data: list, error: listError } = await supabase
+        .from('lists')
+        .select('*')
+        .eq('id', listId)
+        .single();
+      
+      if (listError) {
+        console.error('Error loading list:', {
+          message: listError.message,
+          code: listError.code,
+          details: listError.details,
+          hint: listError.hint
+        });
+        throw listError;
+      }
+      
+      if (!list) {
+        toast.error('القائمة غير موجودة');
+        router.push('/lists');
+        return;
+      }
+      
+      console.log('List loaded successfully:', list.id);
+      
+      // جلب عناصر القائمة
+      const { data: items, error: itemsError } = await supabase
+        .from('items')
+        .select('*')
+        .eq('list_id', listId)
+        .order('created_at', { ascending: true });
+      
+      if (itemsError) {
+        console.error('Error loading items:', {
+          message: itemsError.message,
+          code: itemsError.code,
+          details: itemsError.details,
+          hint: itemsError.hint
+        });
+        throw itemsError;
+      }
+      
+      console.log('Items loaded successfully, count:', items ? items.length : 0);
+      
+      // تحميل تفاصيل القائمة مع العناصر
+      setListDetails({
+        ...list,
+        items: items || []
+      });
+      
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Error loading list details:', error);
+      toast.error('حدث خطأ أثناء تحميل تفاصيل القائمة');
+      setIsLoading(false);
+    }
+  }, [listId, router]);
   
   useEffect(() => {
     const checkAuthAndLoadList = async () => {
@@ -282,7 +351,7 @@ export default function ListDetailsPage() {
                   if (!prevDetails) return prevDetails;
                   
                   // تحديث حالة القائمة بالبيانات الجديدة
-                  const newListData = payload.new as any;
+                  const newListData = payload.new as Partial<ListDetails>;
                   
                   // تجنب التحديث إذا لم تتغير البيانات
                   if (prevDetails.status === newListData.status) {
@@ -340,77 +409,7 @@ export default function ListDetailsPage() {
       // مسح الإشعارات عند مغادرة الصفحة
       clearAllToasts();
     };
-  }, [router, listId, currentUser]);
-  
-  // جلب تفاصيل القائمة والعناصر
-  const loadListDetails = async () => {
-    try {
-      if (!listId) {
-        toast.error('معرّف القائمة غير صالح');
-        router.push('/lists');
-        return;
-      }
-      
-      console.log('Loading list details for ID:', listId);
-      console.log('List ID type:', typeof listId);
-      
-      // جلب تفاصيل القائمة
-      const { data: list, error: listError } = await supabase
-        .from('lists')
-        .select('*')
-        .eq('id', listId)
-        .single();
-      
-      if (listError) {
-        console.error('Error loading list:', {
-          message: listError.message,
-          code: listError.code,
-          details: listError.details,
-          hint: listError.hint
-        });
-        throw listError;
-      }
-      
-      if (!list) {
-        toast.error('القائمة غير موجودة');
-        router.push('/lists');
-        return;
-      }
-      
-      console.log('List loaded successfully:', list.id);
-      
-      // جلب عناصر القائمة
-      const { data: items, error: itemsError } = await supabase
-        .from('items')
-        .select('*')
-        .eq('list_id', listId)
-        .order('created_at', { ascending: true });
-      
-      if (itemsError) {
-        console.error('Error loading items:', {
-          message: itemsError.message,
-          code: itemsError.code,
-          details: itemsError.details,
-          hint: itemsError.hint
-        });
-        throw itemsError;
-      }
-      
-      console.log('Items loaded successfully, count:', items ? items.length : 0);
-      
-      // تحميل تفاصيل القائمة مع العناصر
-      setListDetails({
-        ...list,
-        items: items || []
-      });
-      
-      setIsLoading(false);
-    } catch (error) {
-      console.error('Error loading list details:', error);
-      toast.error('حدث خطأ أثناء تحميل تفاصيل القائمة');
-      setIsLoading(false);
-    }
-  };
+  }, [router, listId, currentUser, loadListDetails]);
   
   // تبديل حالة الشراء للعنصر
   const toggleItemPurchase = async (productId: string) => {
@@ -479,66 +478,6 @@ export default function ListDetailsPage() {
     }
   };
   
-  // تحديث حالة القائمة
-  const updateListStatus = async (newStatus: string | undefined) => {
-    if (!listId || !newStatus) {
-      console.error('معرف القائمة أو الحالة الجديدة غير موجودة');
-      setIsUpdating(false);
-      return;
-    }
-    
-    // التأكد من أن الحالة الجديدة هي واحدة من القيم المقبولة
-    const validStatuses = ['new', 'opened', 'completed'];
-    if (!validStatuses.includes(newStatus)) {
-      console.error(`قيمة حالة غير صالحة: ${newStatus}. القيم المقبولة هي: ${validStatuses.join(', ')}`);
-      setIsUpdating(false);
-      return;
-    }
-    
-    try {
-      console.log(`تحديث حالة القائمة إلى: ${newStatus}, معرف القائمة: ${listId}`);
-      
-      // تحديث الحالة المحلية أولاً
-      setListDetails(prev => {
-        if (!prev) return prev;
-        return { ...prev, status: newStatus };
-      });
-      
-      // تحديث قاعدة البيانات
-      const { error } = await supabase
-        .from('lists')
-        .update({ status: newStatus })
-        .eq('id', listId);
-
-      if (error) {
-        console.error('خطأ في تحديث حالة القائمة:', {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint,
-          fullError: error
-        });
-        
-        toast.error(`حدث خطأ أثناء تحديث حالة القائمة`, 2000);
-        
-        // استعادة البيانات في حالة الخطأ
-        loadListDetails();
-        return;
-      }
-
-      // إظهار رسالة نجاح فقط للتغييرات المهمة في الحالة وبوقت ظهور أقصر
-      if (newStatus === 'completed') {
-        toast.success('تم إكمال القائمة بنجاح', 1500);
-      }
-    } catch (error) {
-      console.error('حدث خطأ غير متوقع في تحديث حالة القائمة:', error);
-      toast.error('حدث خطأ غير متوقع', 2000);
-      loadListDetails();
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-  
   // مشاركة القائمة
   const shareList = async () => {
     if (!listDetails) return;
@@ -560,26 +499,6 @@ export default function ListDetailsPage() {
   // العودة إلى قائمة القوائم
   const goBack = () => {
     router.push('/lists');
-  };
-  
-  // وظيفة لتحديث القائمة يدوياً
-  const refreshListData = async () => {
-    if (isRefreshing || isUpdating) return;
-    
-    setIsRefreshing(true);
-    console.log(`تحديث بيانات القائمة يدوياً: ${listId}`);
-    
-    try {
-      // مسح الإشعارات الحالية قبل التحديث
-      clearAllToasts();
-      await loadListDetails();
-      toast.success('تم تحديث بيانات القائمة', 1000);
-    } catch (error) {
-      console.error('خطأ في تحديث بيانات القائمة:', error);
-      toast.error('حدث خطأ أثناء تحديث بيانات القائمة', 2000);
-    } finally {
-      setIsRefreshing(false);
-    }
   };
   
   // إضافة منتج جديد للقائمة
@@ -953,7 +872,7 @@ export default function ListDetailsPage() {
                 
                 {listDetails.items.length > 0 ? (
                   <ul className="space-y-2">
-                    {listDetails.items.map((item, index) => (
+                    {listDetails.items.map((item) => (
                       <li 
                         key={item.id}
                         className={`border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden transition-all duration-300 ${

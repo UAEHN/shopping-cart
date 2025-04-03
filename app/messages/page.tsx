@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import { Card, CardContent } from '@/components/ui/card';
@@ -25,11 +25,7 @@ export default function MessagesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [lists, setLists] = useState<ShoppingList[]>([]);
   
-  useEffect(() => {
-    loadLists();
-  }, [router]);
-  
-  const loadLists = async () => {
+  const loadLists = useCallback(async () => {
     try {
       setIsLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
@@ -53,7 +49,11 @@ export default function MessagesPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [router]);
+  
+  useEffect(() => {
+    loadLists();
+  }, [loadLists]);
   
   const handleDeleteList = async (id: string) => {
     try {

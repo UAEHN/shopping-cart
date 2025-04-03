@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { signIn, signUp } from '@/services/supabase';
 import { toast } from '@/components/ui/toast';
-import { AppLogo } from '@/components/ui/app-logo';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -69,9 +68,9 @@ export default function LoginPage() {
           throw new Error('خطأ في إنشاء الحساب');
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Auth error:', err);
-      setError(err.message || 'حدث خطأ غير متوقع');
+      setError(err instanceof Error ? err.message : 'حدث خطأ غير متوقع');
     } finally {
       setIsLoading(false);
     }
