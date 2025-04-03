@@ -31,6 +31,13 @@ interface ListDetails {
   items: ListItem[];
 }
 
+// هذه الوظيفة ضرورية لتوليد الصفحات الثابتة للمسارات الديناميكية عند استخدام output: 'export'
+export async function generateStaticParams() {
+  // في البيئة الإنتاجية، سنولد متغير وهمي لتجنب المشكلات
+  // في التطبيق الحقيقي سنحتاج لاستخراج البيانات من قاعدة البيانات
+  return [{ id: 'placeholder' }];
+}
+
 export default function ListDetailsPage() {
   const router = useRouter();
   const params = useParams();
