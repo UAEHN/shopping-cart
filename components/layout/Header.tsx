@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ThemeSwitcher } from '@/components/ui/theme-switcher';
 import { AppLogo } from '@/components/ui/app-logo';
+import { NotificationsDropdown } from '@/components/notifications/notifications-dropdown';
 
 interface HeaderProps {
   showBackButton?: boolean;
@@ -71,6 +72,8 @@ export default function Header({
         
         <div className="flex items-center space-x-reverse space-x-2">
           {extras}
+          
+          <NotificationsDropdown />
           
           <ThemeSwitcher />
           
