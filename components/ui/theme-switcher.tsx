@@ -16,7 +16,7 @@ export function ThemeSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="icon" className="h-9 w-9 rounded-full bg-gray-100 dark:bg-gray-800">
+        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
           {theme === 'dark' ? (
             <Moon className="h-5 w-5 transition-all" />
           ) : theme === 'light' ? (
@@ -27,12 +27,7 @@ export function ThemeSwitcher() {
           <span className="sr-only">تغيير السمة</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent 
-        align="end" 
-        className="animate__fadeIn z-50 rounded-lg shadow-lg"
-        sideOffset={8}
-        avoidCollisions={true}
-      >
+      <DropdownMenuContent align="end" className="animate__fadeIn">
         <DropdownMenuItem 
           onClick={() => setTheme('light')}
           className="flex items-center gap-2 cursor-pointer"

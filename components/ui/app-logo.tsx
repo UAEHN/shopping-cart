@@ -31,7 +31,6 @@ export function AppLogo({ size = 'normal', withLink = true }: { size?: 'small' |
   const Logo = () => (
     <div className={`${containerClasses[size]} py-1 rounded-full transition-all`}>
       <div className="relative">
-        <div className="absolute -inset-1.5 bg-blue-500 dark:bg-blue-600 blur-sm opacity-70 rounded-full"></div>
         <ShoppingCart className={`${iconSize[size]} text-blue-600 dark:text-blue-400 relative z-10`} />
       </div>
       <div className="flex flex-col">
