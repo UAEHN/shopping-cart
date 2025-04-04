@@ -203,6 +203,15 @@ export default function CreateListPage() {
         throw itemsError;
       }
       
+      // إنشاء إشعار لمستلم القائمة
+      await createNotification(
+        recipientUsername,
+        `أرسل لك ${currentUser} قائمة تسوق جديدة`,
+        'NEW_LIST',
+        null,
+        listData.id
+      );
+      
       toast.success('تم إرسال القائمة بنجاح', 1500);
       
       setTimeout(() => {
@@ -212,6 +221,48 @@ export default function CreateListPage() {
       console.error('Error sending list:', error);
       toast.error('حدث خطأ أثناء إرسال القائمة', 2000);
       setIsSending(false);
+    }
+  };
+
+  // إنشاء إشعار
+  const createNotification = async (
+    recipientUsername: string, 
+    message: string, 
+    type: string, 
+    itemId: string | null = null, 
+    listId: string | null = null
+  ) => {
+    try {
+      // البحث عن معرف المستخدم المستلم
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('username', recipientUsername)
+        .single();
+      
+      if (userError || !userData) {
+        console.error('Error finding recipient user:', userError);
+        return;
+      }
+      
+      // إنشاء الإشعار
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: userData.id,
+          message,
+          related_item_id: itemId,
+          related_list_id: listId,
+          type,
+          is_read: false
+        });
+      
+      if (notificationError) {
+        console.error('Error creating notification:', notificationError);
+      }
+      
+    } catch (error) {
+      console.error('Error in notification creation:', error);
     }
   };
 

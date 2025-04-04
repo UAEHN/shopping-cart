@@ -9,11 +9,17 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ShoppingCart, Bell, Users } from 'lucide-react';
 import { supabase } from '@/services/supabase';
 import { toast } from '@/components/ui/toast';
+import { useNotifications, Notification, NotificationType } from '@/hooks/useRealtime';
+import { formatDistanceToNow } from 'date-fns';
+import { ar } from 'date-fns/locale';
+import { ClipboardCheck, Check, AlertCircle } from 'lucide-react';
 
 export default function HomePage() {
   const router = useRouter();
   const [userName, setUserName] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
+  const [userData, setUserData] = useState<any>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
   
   useEffect(() => {
     // التحقق من تسجيل الدخول والحصول على اسم المستخدم
@@ -77,6 +83,39 @@ export default function HomePage() {
     };
     
     checkAuth();
+  }, [router]);
+  
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        setIsLoadingUser(true);
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          router.push('/login');
+          return;
+        }
+        
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+          
+        if (userError) throw userError;
+        
+        if (userData) {
+          setUserData(userData);
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        toast.error('حدث خطأ أثناء تحميل البيانات');
+      } finally {
+        setIsLoadingUser(false);
+      }
+    };
+    
+    fetchUserData();
   }, [router]);
   
   if (isLoading) {
@@ -161,22 +200,142 @@ export default function HomePage() {
         <div className="mt-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">آخر الإشعارات</h2>
-            <Button variant="ghost" size="sm" className="text-xs p-1 h-auto flex items-center gap-1">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-xs p-1 h-auto flex items-center gap-1"
+              onClick={() => router.push('/notifications')}
+            >
               <Bell className="h-4 w-4" />
               <span>الكل</span>
             </Button>
           </div>
           
-          <Card className="bg-gradient-to-r from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 rounded-xl overflow-hidden border-gray-200 dark:border-gray-700 transition-all duration-300">
-            <CardContent className="p-6 text-center">
-              <p className="text-gray-500 dark:text-gray-400 flex flex-col items-center gap-3">
-                <Bell className="h-8 w-8 text-gray-400 dark:text-gray-500 opacity-50" />
-                <span>لا توجد إشعارات حتى الآن</span>
-              </p>
-            </CardContent>
-          </Card>
+          {isLoadingUser ? (
+            <Card className="rounded-xl overflow-hidden border-gray-200 dark:border-gray-700 transition-all duration-300">
+              <CardContent className="p-6 text-center">
+                <div className="animate-pulse flex flex-col items-center">
+                  <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-full mb-4"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <NotificationsList userId={userData?.id} limit={3} showEmpty={true} />
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// مكون قائمة الإشعارات
+function NotificationsList({ userId, limit = 3, showEmpty = true }: { userId?: string, limit?: number, showEmpty?: boolean }) {
+  const { notifications, isLoading, markAsRead } = useNotifications(userId || null, limit);
+  const router = useRouter();
+
+  // تنسيق التاريخ بشكل نسبي
+  const formatDate = (dateString: string) => {
+    try {
+      return formatDistanceToNow(new Date(dateString), { 
+        addSuffix: true,
+        locale: ar
+      });
+    } catch (error) {
+      return 'وقت غير معروف';
+    }
+  };
+
+  // الحصول على الأيقونة المناسبة لنوع الإشعار
+  const getNotificationIcon = (type: NotificationType) => {
+    switch (type) {
+      case 'NEW_LIST':
+        return <ShoppingCart className="h-5 w-5 text-blue-500 dark:text-blue-400" />;
+      case 'LIST_STATUS':
+        return <ClipboardCheck className="h-5 w-5 text-green-500 dark:text-green-400" />;
+      case 'NEW_ITEM':
+        return <ShoppingCart className="h-5 w-5 text-purple-500 dark:text-purple-400" />;
+      case 'ITEM_STATUS':
+        return <Check className="h-5 w-5 text-green-500 dark:text-green-400" />;
+      default:
+        return <AlertCircle className="h-5 w-5 text-gray-500 dark:text-gray-400" />;
+    }
+  };
+
+  // معالجة النقر على الإشعار
+  const handleNotificationClick = (notification: Notification) => {
+    // تحديث الإشعار كمقروء
+    markAsRead(notification.id);
+    
+    // توجيه المستخدم حسب نوع الإشعار
+    if (notification.related_list_id) {
+      router.push(`/lists/${notification.related_list_id}`);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Card className="rounded-xl overflow-hidden border-gray-200 dark:border-gray-700 transition-all duration-300">
+        <CardContent className="p-6">
+          <div className="space-y-4">
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="animate-pulse flex items-start gap-3">
+                <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-full flex-shrink-0"></div>
+                <div className="flex-1">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!notifications.length && showEmpty) {
+    return (
+      <Card className="bg-gradient-to-r from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 rounded-xl overflow-hidden border-gray-200 dark:border-gray-700 transition-all duration-300">
+        <CardContent className="p-6 text-center">
+          <p className="text-gray-500 dark:text-gray-400 flex flex-col items-center gap-3">
+            <Bell className="h-8 w-8 text-gray-400 dark:text-gray-500 opacity-50" />
+            <span>لا توجد إشعارات حتى الآن</span>
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {notifications.map((notification) => (
+        <Card 
+          key={notification.id}
+          className={`rounded-xl overflow-hidden border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-300 cursor-pointer
+            ${!notification.is_read ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800/30' : ''}`}
+          onClick={() => handleNotificationClick(notification)}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-1 flex-shrink-0">
+                {getNotificationIcon(notification.type as NotificationType)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm ${!notification.is_read ? 'font-semibold text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'}`}>
+                  {notification.message}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {formatDate(notification.created_at)}
+                </p>
+              </div>
+              {!notification.is_read && (
+                <span className="flex-shrink-0 w-2 h-2 rounded-full bg-blue-500"></span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 } 
