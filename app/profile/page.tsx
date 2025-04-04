@@ -177,14 +177,16 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
         
-        <Button 
-          variant="destructive" 
-          className="w-full"
-          onClick={handleLogout}
-        >
-          <LogOut className="h-5 w-5 ml-2" />
-          تسجيل الخروج
-        </Button>
+        <div className="pt-6">
+          <Button 
+            variant="outline" 
+            className="w-full bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-all duration-300 h-12 rounded-xl shadow-sm hover:shadow-md"
+            onClick={handleLogout}
+          >
+            <LogOut className="h-5 w-5 ml-2" />
+            تسجيل الخروج
+          </Button>
+        </div>
       </div>
     </div>
   );

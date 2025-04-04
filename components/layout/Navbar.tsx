@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { 
   HomeIcon, 
   Users, 
-  MessageSquare, 
   User,
   ShoppingCart
 } from 'lucide-react';
@@ -14,7 +13,6 @@ const navItems = [
   { name: 'عربة التسوق', href: '/home', icon: HomeIcon },
   { name: 'القوائم', href: '/lists', icon: ShoppingCart },
   { name: 'الأشخاص', href: '/contacts', icon: Users },
-  { name: 'الرسائل', href: '/messages', icon: MessageSquare },
   { name: 'الملف الشخصي', href: '/profile', icon: User },
 ];
 

@@ -11,9 +11,9 @@ export function AppLogo({ size = 'normal', withLink = true }: { size?: 'small' |
   
   // تحديد الأحجام بناءً على معامل الحجم
   const containerClasses = {
-    small: "flex items-center gap-1 px-1",
-    normal: "flex items-center gap-2 px-2",
-    large: "flex items-center gap-3 px-3",
+    small: "flex items-center gap-2 px-1",
+    normal: "flex items-center gap-3 px-2",
+    large: "flex items-center gap-4 px-3",
   };
   
   const iconSize = {
@@ -31,14 +31,14 @@ export function AppLogo({ size = 'normal', withLink = true }: { size?: 'small' |
   const Logo = () => (
     <div className={`${containerClasses[size]} py-1 rounded-full transition-all`}>
       <div className="relative">
-        <div className="absolute -inset-1 bg-blue-500 dark:bg-blue-600 blur-sm opacity-70 rounded-full"></div>
+        <div className="absolute -inset-1.5 bg-blue-500 dark:bg-blue-600 blur-sm opacity-70 rounded-full"></div>
         <ShoppingCart className={`${iconSize[size]} text-blue-600 dark:text-blue-400 relative z-10`} />
       </div>
       <div className="flex flex-col">
         <span className={`${textSize[size]} font-bold leading-none bg-gradient-to-r from-blue-600 to-blue-800 dark:from-blue-400 dark:to-blue-600 bg-clip-text text-transparent`}>
           عربة التسوق
         </span>
-        <span className={`${textSize[size]} -mt-0.5 text-xs text-gray-500 dark:text-gray-400 font-semibold leading-none`}>
+        <span className={`${textSize[size]} mt-1.5 text-xs text-gray-500 dark:text-gray-400 font-semibold leading-none`}>
           Shopping Cart
         </span>
       </div>

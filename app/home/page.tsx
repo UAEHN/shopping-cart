@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ShoppingCart, Bell, Users, MessageSquare } from 'lucide-react';
+import { ShoppingCart, Bell, Users } from 'lucide-react';
 import { supabase } from '@/services/supabase';
 import { toast } from '@/components/ui/toast';
 
@@ -127,57 +128,34 @@ export default function HomePage() {
           </CardContent>
         </Card>
         
-        <div className="grid grid-cols-3 gap-4 mt-8">
-          <Card className="border-gray-200 bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 transition-all duration-300 hover:shadow-md rounded-xl">
-            <CardContent className="p-4 flex flex-col items-center text-center">
-              <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-full mt-2 mb-3">
-                <ShoppingCart className="h-6 w-6 text-gray-600 dark:text-gray-300" />
-              </div>
-              <h3 className="font-medium text-sm">قوائم التسوق</h3>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className="mt-2 text-blue-600 dark:text-blue-400 p-1 h-auto text-xs"
-                onClick={() => router.push('/lists')}
-              >
-                عرض الكل
-              </Button>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-2 gap-4 mt-8">
+          <Link href="/lists" className="block">
+            <Card className="border-gray-200 bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 transition-all duration-300 hover:shadow-md rounded-xl h-full cursor-pointer hover:translate-y-[-2px]">
+              <CardContent className="p-4 flex flex-col items-center text-center h-full">
+                <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-full mt-2 mb-3">
+                  <ShoppingCart className="h-6 w-6 text-gray-600 dark:text-gray-300" />
+                </div>
+                <h3 className="font-medium text-sm">قوائم التسوق</h3>
+                <span className="mt-2 text-blue-600 dark:text-blue-400 text-xs">
+                  عرض الكل
+                </span>
+              </CardContent>
+            </Card>
+          </Link>
 
-          <Card className="border-gray-200 bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 transition-all duration-300 hover:shadow-md rounded-xl">
-            <CardContent className="p-4 flex flex-col items-center text-center">
-              <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-full mt-2 mb-3">
-                <Users className="h-6 w-6 text-gray-600 dark:text-gray-300" />
-              </div>
-              <h3 className="font-medium text-sm">الأشخاص</h3>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className="mt-2 text-blue-600 dark:text-blue-400 p-1 h-auto text-xs"
-                onClick={() => router.push('/contacts')}
-              >
-                عرض الكل
-              </Button>
-            </CardContent>
-          </Card>
-          
-          <Card className="border-gray-200 bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 transition-all duration-300 hover:shadow-md rounded-xl">
-            <CardContent className="p-4 flex flex-col items-center text-center">
-              <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-full mt-2 mb-3">
-                <MessageSquare className="h-6 w-6 text-gray-600 dark:text-gray-300" />
-              </div>
-              <h3 className="font-medium text-sm">الرسائل</h3>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className="mt-2 text-blue-600 dark:text-blue-400 p-1 h-auto text-xs"
-                onClick={() => router.push('/messages')}
-              >
-                عرض الكل
-              </Button>
-            </CardContent>
-          </Card>
+          <Link href="/contacts" className="block">
+            <Card className="border-gray-200 bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 transition-all duration-300 hover:shadow-md rounded-xl h-full cursor-pointer hover:translate-y-[-2px]">
+              <CardContent className="p-4 flex flex-col items-center text-center h-full">
+                <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-full mt-2 mb-3">
+                  <Users className="h-6 w-6 text-gray-600 dark:text-gray-300" />
+                </div>
+                <h3 className="font-medium text-sm">الأشخاص</h3>
+                <span className="mt-2 text-blue-600 dark:text-blue-400 text-xs">
+                  عرض الكل
+                </span>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
         
         <div className="mt-8">

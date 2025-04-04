@@ -1,15 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Cairo } from "next/font/google";
+import { Inter, Tajawal } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/layout/Navbar";
 import { Providers } from "./providers";
 import { Toaster } from "@/components/ui/toast";
 
 // استيراد خط مناسب للغة العربية
-const cairo = Cairo({ 
+const tajawal = Tajawal({ 
   subsets: ["arabic"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-cairo",
+  weight: ["400", "500", "700", "800"],
+  variable: "--font-tajawal",
 });
 
 const inter = Inter({ 
@@ -36,7 +36,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ar" dir="rtl" className="scroll-smooth">
-      <body className={`${cairo.variable} ${inter.variable} font-cairo min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 antialiased`}>
+      <body className={`${tajawal.variable} ${inter.variable} font-tajawal min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 antialiased`}>
         <Providers>
           <div className="flex-1 pb-16 pt-16 max-w-screen-lg mx-auto w-full">
             {children}

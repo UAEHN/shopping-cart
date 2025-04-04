@@ -8,8 +8,13 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        tajawal: ['var(--font-tajawal)', 'sans-serif'],
+        inter: ['var(--font-inter)', 'sans-serif'],
+      },
       colors: {
         'gray-850': '#1f2937', // Specific dark gray for backgrounds
+        'gray-750': '#283241', // Another dark gray for gradients
         primary: {
           DEFAULT: '#3b82f6', // blue-500
           foreground: '#ffffff',

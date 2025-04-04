@@ -10,10 +10,9 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { supabase } from '@/services/supabase';
 import { toast } from '@/components/ui/toast';
-import { Search, UserRound, UsersRound } from 'lucide-react';
+import { UserRound, UsersRound } from 'lucide-react';
 
 interface Contact {
   id: string;
@@ -34,7 +33,6 @@ export default function SelectRecipientDialog({
 }: SelectRecipientDialogProps) {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedContact, setSelectedContact] = useState<string | null>(null);
 
   // جلب قائمة الأشخاص المضافين
@@ -74,11 +72,6 @@ export default function SelectRecipientDialog({
     }
   };
 
-  // تصفية جهات الاتصال حسب البحث
-  const filteredContacts = contacts.filter(contact => 
-    contact.contact_username.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   // اختيار جهة اتصال ومتابعة العملية
   const handleSelectRecipient = () => {
     if (!selectedContact) {
@@ -107,25 +100,13 @@ export default function SelectRecipientDialog({
         </DialogHeader>
 
         <div className="p-6">
-          <div className="mb-6">
-            <div className="relative bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm focus-within:shadow-md transition-all duration-200 border border-gray-200 dark:border-gray-700">
-              <Search className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
-              <Input
-                placeholder="بحث..."
-                className="border-0 shadow-none focus-visible:ring-0 pr-12 py-5 text-base bg-transparent dark:text-gray-100 dark:placeholder:text-gray-500"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </div>
-
           {isLoading ? (
             <div className="flex justify-center py-10">
               <div className="animate-pulse">جاري التحميل...</div>
             </div>
-          ) : filteredContacts.length > 0 ? (
+          ) : contacts.length > 0 ? (
             <div className="space-y-2 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
-              {filteredContacts.map((contact, index) => (
+              {contacts.map((contact, index) => (
                 <div
                   key={contact.id}
                   className={`p-3 rounded-lg transition-all duration-200 flex items-center cursor-pointer ${
@@ -159,12 +140,10 @@ export default function SelectRecipientDialog({
                 <UsersRound className="h-8 w-8 text-gray-400" />
               </div>
               <p className="text-gray-500 dark:text-gray-400">
-                {searchQuery ? 'لا توجد نتائج للبحث' : 'لا توجد جهات اتصال مضافة'}
+                لا توجد جهات اتصال مضافة
               </p>
               <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">
-                {searchQuery 
-                  ? 'حاول استخدام كلمات بحث مختلفة' 
-                  : 'أضف جهات اتصال من صفحة الأشخاص أولاً'}
+                أضف جهات اتصال من صفحة الأشخاص أولاً
               </p>
             </div>
           )}

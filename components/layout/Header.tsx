@@ -26,7 +26,6 @@ export default function Header({
   const getDefaultTitle = () => {
     if (pathname === '/home') return ''; // سنعرض الشعار بدلاً من النص
     if (pathname === '/contacts') return 'الأشخاص';
-    if (pathname === '/messages') return 'الرسائل';
     if (pathname === '/lists') return 'قوائم التسوق';
     if (pathname === '/profile') return 'الملف الشخصي';
     if (pathname === '/create-list') return 'قائمة جديدة';

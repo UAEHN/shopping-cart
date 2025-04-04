@@ -809,7 +809,7 @@ export default function ListDetailsPage() {
                   </div>
                   
                   <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    {new Date(listDetails.created_at).toLocaleDateString('ar-SA', {
+                    {new Date(listDetails.created_at).toLocaleDateString('en-US', {
                       weekday: 'long',
                       year: 'numeric',
                       month: 'long',
@@ -904,7 +904,7 @@ export default function ListDetailsPage() {
                               </span>
                               {item.purchased && item.purchased_at && (
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                  تم الشراء: {new Date(item.purchased_at).toLocaleString('ar-SA', {
+                                  تم الشراء: {new Date(item.purchased_at).toLocaleString('en-US', {
                                     year: 'numeric',
                                     month: 'numeric',
                                     day: 'numeric',

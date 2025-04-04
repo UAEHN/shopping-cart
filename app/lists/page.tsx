@@ -520,7 +520,7 @@ export default function ListsPage() {
                       </>
                     )}
                     <span className="mx-1">•</span>
-                    <span>{new Date(list.created_at).toLocaleDateString('ar-SA')}</span>
+                    <span>{new Date(list.created_at).toLocaleDateString('en-US')}</span>
                   </div>
                 </div>
               </div>
