@@ -95,9 +95,7 @@ export default function LoginPage() {
         <div className="flex justify-center mb-6">
           <AppLogo size="large" withLink={false} />
         </div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-          My Basket | سلتي
-        </h1>
+        
         <p className="text-sm text-gray-600 dark:text-gray-400">
           تطبيق إدارة قوائم التسوق التفاعلي
         </p>
@@ -149,12 +147,12 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500 transition-all pr-10"
+                  className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500 transition-all pl-4 pr-10"
                   dir="ltr"
                 />
                 <button 
                   type="button"
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}

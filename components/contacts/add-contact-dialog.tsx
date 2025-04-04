@@ -61,8 +61,48 @@ export function AddContactDialog({
       console.log('Current user:', user);
       console.log('User ID:', user.id);
 
-      // إضافة جهة اتصال مباشرة
-      // لا نحتاج للتحقق من وجود سجل المستخدم، لأن المشغل التلقائي يضمن وجوده
+      // التحقق من وجود المستخدم في قاعدة البيانات
+      const { data: existingUser, error: userError } = await supabase
+        .from('users')
+        .select('username')
+        .eq('username', contactData.name)
+        .single();
+      
+      if (userError || !existingUser) {
+        console.error('User does not exist:', userError);
+        toast.error('المستخدم غير موجود في النظام. الرجاء التأكد من اسم المستخدم.');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // التحقق من أن المستخدم لا يضيف نفسه كجهة اتصال
+      const { data: currentUserData } = await supabase
+        .from('users')
+        .select('username')
+        .eq('id', user.id)
+        .single();
+        
+      if (currentUserData && currentUserData.username === contactData.name) {
+        toast.error('لا يمكن إضافة نفسك كجهة اتصال');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // التحقق من أن جهة الاتصال غير موجودة مسبقاً
+      const { data: existingContact, error: existingContactError } = await supabase
+        .from('contacts')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('contact_username', contactData.name)
+        .single();
+        
+      if (existingContact) {
+        toast.error('جهة الاتصال موجودة بالفعل');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // إضافة جهة اتصال بعد التحقق من وجود المستخدم
       try {
         const { error: contactError } = await supabase.from('contacts').insert({
           user_id: user.id,
@@ -114,7 +154,7 @@ export function AddContactDialog({
         
         <div className="p-6">
           <AlertDialogDescription className="text-sm text-gray-600 dark:text-gray-300 text-center mb-6">
-            أدخل اسم جهة الاتصال الجديدة
+            أدخل اسم مستخدم موجود في النظام لإضافته كجهة اتصال
           </AlertDialogDescription>
 
           <div className="space-y-5">
@@ -125,12 +165,15 @@ export function AddContactDialog({
                   name="name"
                   value={contactData.name}
                   onChange={handleInputChange}
-                  placeholder="أدخل الاسم هنا"
+                  placeholder="أدخل اسم مستخدم مسجل في النظام"
                   required
                   className="w-full py-2 px-4 bg-white dark:bg-gray-800 border-0 focus-visible:ring-0 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
                 />
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
               </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                يجب إدخال اسم مستخدم موجود بالفعل في النظام
+              </p>
             </div>
             
             <div className="space-y-2 hidden">

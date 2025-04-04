@@ -169,7 +169,10 @@ export default function ContactsPage() {
                   لا توجد جهات اتصال
                 </p>
                 <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">
-                  اضغط على زر الإضافة لإنشاء جهة اتصال جديدة
+                  يمكنك إضافة المستخدمين المسجلين في النظام كجهات اتصال
+                </p>
+                <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
+                  فقط المستخدمين الذين لديهم حسابات في التطبيق يمكن إضافتهم
                 </p>
               </CardContent>
             </Card>
