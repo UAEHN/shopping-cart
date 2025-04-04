@@ -111,7 +111,7 @@ export default function CreateListPage() {
         };
         
         // تعليق هذا السطر عندما لا تريد إرسال إشعارات اختبارية
-        // testNotifications();
+        testNotifications();
       } catch (error) {
         console.error('Error checking auth:', error);
         toast.error('حدث خطأ أثناء التحقق من الحساب', 2000);
@@ -180,6 +180,57 @@ export default function CreateListPage() {
     setIsDialogOpen(true);
   };
 
+  // البحث عن مستخدم بالاسم
+  const findUserByUsername = async (username: string) => {
+    try {
+      console.log(`البحث عن المستخدم: ${username}`);
+      
+      if (!username || username.trim() === '') {
+        console.error('اسم المستخدم فارغ');
+        return null;
+      }
+      
+      // استعلام البحث عن المستخدم بالاسم - بحث دقيق
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('username', username.trim())
+        .single();
+
+      // إذا لم يتم العثور على المستخدم، حاول البحث بشكل أقل تقييداً
+      if (error || !data) {
+        console.log(`لم يتم العثور على "${username}" بالمطابقة الدقيقة، جاري محاولة البحث بشكل جزئي...`);
+        
+        // بحث جزئي باستخدام ilike
+        const { data: partialData, error: partialError } = await supabase
+          .from('users')
+          .select('*')
+          .ilike('username', `%${username.trim()}%`)
+          .limit(1);
+          
+        if (partialError) {
+          console.error('خطأ في البحث الجزئي عن المستخدم:', partialError);
+          throw new Error(`فشل البحث عن المستخدم: ${partialError.message}`);
+        }
+        
+        if (partialData && partialData.length > 0) {
+          console.log(`تم العثور على المستخدم بالبحث الجزئي:`, partialData[0]);
+          return partialData[0];
+        }
+        
+        console.error(`لم يتم العثور على أي مستخدم باسم: "${username}"`);
+        throw new Error(`لم يتم العثور على أي مستخدم باسم: "${username}"`);
+      }
+      
+      console.log(`تم العثور على المستخدم:`, data);
+      return data;
+    } catch (error: any) {
+      console.error(`فشل البحث عن المستخدم المستلم: ${error?.message || JSON.stringify(error)}`);
+      toast.error(`فشل البحث عن المستخدم: ${error?.message || 'حدث خطأ غير متوقع'}`);
+      return null;
+    }
+  };
+
   // معالجة اختيار المستلم وإرسال القائمة
   const handleSelectRecipient = async (recipientUsername: string) => {
     if (!recipientUsername) {
@@ -191,6 +242,18 @@ export default function CreateListPage() {
       // مسح الإشعارات الحالية قبل البدء
       clearAllToasts();
       setIsSending(true);
+      
+      // البحث عن المستخدم المستلم
+      const recipientUser = await findUserByUsername(recipientUsername);
+      
+      if (!recipientUser) {
+        console.error(`لم يتم العثور على المستخدم: "${recipientUsername}"`);
+        toast.error(`لم يتم العثور على مستخدم باسم "${recipientUsername}"`);
+        setIsSending(false);
+        return;
+      }
+      
+      console.log(`تم العثور على المستخدم المستلم:`, recipientUser);
       
       // الحصول على معرّف المستخدم الحالي
       const { data: { user } } = await supabase.auth.getUser();
@@ -270,25 +333,20 @@ export default function CreateListPage() {
       console.log(`محاولة إنشاء إشعار للمستخدم: ${recipientUsername}`);
       
       // البحث عن معرف المستخدم المستلم
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('username', recipientUsername)
-        .single();
+      const recipientUser = await findUserByUsername(recipientUsername);
       
-      if (userError || !userData) {
-        console.error('Error finding recipient user:', userError);
-        console.error('Username lookup failed for:', recipientUsername);
+      if (!recipientUser) {
+        console.error(`فشل إنشاء الإشعار: لم يتم العثور على المستخدم ${recipientUsername}`);
         return;
       }
       
-      console.log(`تم العثور على معرف المستخدم: ${userData.id}`);
+      console.log(`تم العثور على معرف المستخدم: ${recipientUser.id}`);
       
       // إنشاء الإشعار
       const { data: notificationData, error: notificationError } = await supabase
         .from('notifications')
         .insert({
-          user_id: userData.id,
+          user_id: recipientUser.id,
           message,
           related_item_id: itemId,
           related_list_id: listId,

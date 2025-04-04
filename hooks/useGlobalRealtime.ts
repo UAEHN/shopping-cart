@@ -1,98 +1,153 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/services/supabase';
 import { toast } from '@/components/ui/toast';
 import { useAuth } from '@/hooks/useAuth';
-import { NotificationType } from './useRealtime';
+import { NotificationType, Notification } from './useRealtime';
 
 // مراقبة الإشعارات على مستوى التطبيق
-export const useGlobalRealtime = () => {
-  const { user } = useAuth();
-  
+export const useGlobalRealtime = (userId: string | null) => {
+  const [isConnected, setIsConnected] = useState(false);
+  const notificationDisplay = useRef<{[key: string]: boolean}>({});
+
   useEffect(() => {
-    if (!user) return;
+    if (!userId) {
+      console.log('لا يوجد مستخدم مسجل الدخول. لن يتم الاشتراك في الإشعارات العالمية.');
+      return;
+    }
+
+    console.log(`بدء الاشتراك في الإشعارات العالمية للمستخدم: ${userId}`);
+
+    // استخدام اسم قناة ثابت لتجنب تعدد الاشتراكات
+    const channelName = `global-notifications-${userId}`;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
     
-    console.log(`إعداد اشتراك عالمي للإشعارات للمستخدم: ${user.id}`);
-    
-    // اختبار الاتصال بالخادم
+    // اختبار الاتصال بقاعدة البيانات قبل الاشتراك في القناة
     const testConnection = async () => {
       try {
-        const { count, error } = await supabase
+        // اختبار الاتصال بجدول الإشعارات
+        const { error } = await supabase
           .from('notifications')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', user.id);
+          .select('id')
+          .limit(1);
         
         if (error) {
-          console.error('خطأ في اختبار الاتصال بجدول الإشعارات:', error);
-        } else {
-          console.log(`تم العثور على ${count} إشعار للمستخدم ${user.id}`);
+          console.error('فشل اختبار الاتصال بالخادم:', error);
+          return false;
         }
+        
+        console.log('تم التحقق من الاتصال بالخادم بنجاح');
+        return true;
       } catch (err) {
-        console.error('خطأ غير متوقع في اختبار الاتصال:', err);
+        console.error('خطأ أثناء اختبار الاتصال:', err);
+        return false;
       }
     };
     
-    testConnection();
-    
-    // الاشتراك في التغييرات على جدول الإشعارات 
-    // تم تغيير اسم القناة لتجنب أي تعارض مع اشتراكات موجودة
-    const channel = supabase
-      .channel(`global-realtime-${user.id}-${Date.now()}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          // إظهار الإشعار الجديد كـ toast notification
-          const notification = payload.new as {
-            message: string;
-            type: NotificationType;
-            id: string;
-          };
-          
-          console.log('تم استلام إشعار جديد في useGlobalRealtime:', notification);
-          
-          // تخصيص مدة ولون الإشعار بناءً على نوعه
-          let duration = 5000; // زيادة المدة للتأكد من رؤية الإشعار
-          
-          switch (notification.type) {
-            case 'NEW_LIST':
-              toast.info(notification.message, duration);
-              break;
-            case 'LIST_STATUS':
-              toast.success(notification.message, duration);
-              break;
-            case 'NEW_ITEM':
-              toast.info(notification.message, duration);
-              break;
-            case 'ITEM_STATUS':
-              toast.success(notification.message, duration);
-              break;
-            default:
-              toast.info(notification.message, duration);
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log(`حالة اشتراك الإشعارات العالمية (useGlobalRealtime): ${status}`);
+    // وظيفة إنشاء القناة والاشتراك
+    const subscribeToChannel = async () => {
+      // التحقق من الاتصال أولاً
+      const isServerConnected = await testConnection();
+      if (!isServerConnected) {
+        console.error('لا يمكن الاتصال بالخادم. لن يتم الاشتراك في الإشعارات العالمية.');
         
-        // إذا كان الحالة هي SUBSCRIBED، نقوم بإجراء اختبار للاشتراك
-        if (status === 'SUBSCRIBED') {
-          console.log(`تم الاشتراك بنجاح في قناة الإشعارات العالمية للمستخدم: ${user.id}`);
-        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-          console.error(`فشل الاشتراك في قناة الإشعارات العالمية. الحالة: ${status}`);
+        // محاولة إعادة الاتصال بعد فترة
+        if (reconnectAttempts < maxReconnectAttempts) {
+          reconnectAttempts++;
+          console.log(`محاولة إعادة الاتصال (${reconnectAttempts}/${maxReconnectAttempts}) بعد 5 ثوانٍ...`);
+          setTimeout(subscribeToChannel, 5000);
         }
-      });
-    
-    // تنظيف الاشتراك عند تفكيك المكوّن
-    return () => {
-      console.log(`إلغاء اشتراك الإشعارات العالمية للمستخدم: ${user.id}`);
-      supabase.removeChannel(channel);
+        return;
+      }
+      
+      console.log(`إنشاء قناة الإشعارات العالمية: ${channelName}`);
+      const channel = supabase.channel(channelName);
+      
+      channel
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${userId}`
+          },
+          (payload) => {
+            // التأكد من عدم إظهار الإشعار مرتين
+            const notification = payload.new as Notification;
+            const notificationId = notification.id;
+            
+            if (notificationDisplay.current[notificationId]) {
+              console.log(`تم استلام إشعار مكرر (${notificationId})، يتم تجاهله`);
+              return;
+            }
+            
+            console.log('تم استلام إشعار جديد في useGlobalRealtime:', notification);
+            notificationDisplay.current[notificationId] = true;
+            
+            // إظهار الإشعار مع وقت عرض أطول (5 ثوانٍ)
+            switch (notification.type) {
+              case 'NEW_LIST':
+                toast.info(notification.message, 5000);
+                break;
+              case 'LIST_STATUS':
+                toast.success(notification.message, 5000);
+                break;
+              case 'NEW_ITEM':
+                toast.info(notification.message, 5000);
+                break;
+              case 'ITEM_STATUS':
+                toast.success(notification.message, 5000);
+                break;
+              default:
+                toast.info(notification.message, 5000);
+            }
+          }
+        )
+        .subscribe((status) => {
+          console.log(`حالة اشتراك قناة الإشعارات العالمية: ${status}`);
+          
+          if (status === 'SUBSCRIBED') {
+            console.log('تم الاشتراك بنجاح في قناة الإشعارات العالمية.');
+            setIsConnected(true);
+            reconnectAttempts = 0; // إعادة ضبط عدد محاولات إعادة الاتصال
+          } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+            console.error(`فشل الاشتراك في قناة الإشعارات العالمية. الحالة: ${status}`);
+            setIsConnected(false);
+            
+            // محاولة إعادة الاتصال إذا كان عدد المحاولات أقل من الحد الأقصى
+            if (reconnectAttempts < maxReconnectAttempts) {
+              reconnectAttempts++;
+              console.log(`محاولة إعادة الاتصال (${reconnectAttempts}/${maxReconnectAttempts}) بعد 3 ثوانٍ...`);
+              
+              // إنشاء قناة جديدة بعد فترة قصيرة
+              setTimeout(() => {
+                console.log('محاولة إعادة الاشتراك في قناة الإشعارات العالمية...');
+                channel.subscribe();
+              }, 3000);
+            } else {
+              console.error(`تم الوصول للحد الأقصى من محاولات الاتصال (${maxReconnectAttempts}). توقف عن المحاولة.`);
+            }
+          }
+        });
+      
+      // تنظيف الاشتراك
+      return () => {
+        console.log(`إلغاء الاشتراك في قناة الإشعارات العالمية: ${channelName}`);
+        supabase.removeChannel(channel);
+      };
     };
-  }, [user]);
-  
-  return null;
+    
+    // بدء الاشتراك
+    const cleanup = subscribeToChannel();
+    
+    // تنظيف الاشتراكات عند إزالة المكون
+    return () => {
+      if (cleanup && typeof cleanup === 'function') {
+        cleanup();
+      }
+    };
+  }, [userId]);
+
+  return isConnected;
 }; 

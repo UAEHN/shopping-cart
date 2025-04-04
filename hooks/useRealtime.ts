@@ -214,13 +214,13 @@ export const useNotifications = (userId: string | null, limit: number = 10) => {
 
     fetchNotifications();
 
-    // اسم قناة فريد للتأكد من عدم وجود تعارض
-    const uniqueChannelName = `notifications-list-${userId}-${Date.now()}`;
-    console.log(`إنشاء قناة جديدة للإشعارات: ${uniqueChannelName}`);
+    // استخدام اسم قناة ثابت بدلاً من اسم فريد لتجنب تعدد الاشتراكات
+    const channelName = `notifications-list-${userId}`;
+    console.log(`إنشاء قناة للإشعارات: ${channelName}`);
 
     // الاشتراك في التغييرات الجديدة في الإشعارات
     const notificationsSubscription = supabase
-      .channel(uniqueChannelName)
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -277,12 +277,20 @@ export const useNotifications = (userId: string | null, limit: number = 10) => {
         
         if (status === 'SUBSCRIBED') {
           console.log(`تم الاشتراك بنجاح في قناة الإشعارات للمستخدم: ${userId}`);
+        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          console.error(`فشل الاشتراك في قناة الإشعارات (useNotifications). الحالة: ${status}`);
+          
+          // محاولة إعادة الاتصال بعد فترة قصيرة
+          setTimeout(() => {
+            console.log('محاولة إعادة الاتصال بقناة الإشعارات...');
+            notificationsSubscription.subscribe();
+          }, 2000);
         }
       });
 
     // تنظيف الاشتراكات
     return () => {
-      console.log(`إلغاء الاشتراك في قناة الإشعارات: ${uniqueChannelName}`);
+      console.log(`إلغاء الاشتراك في قناة الإشعارات: ${channelName}`);
       supabase.removeChannel(notificationsSubscription);
     };
   }, [userId, limit]);
