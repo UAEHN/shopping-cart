@@ -7,7 +7,7 @@ import { toast, clearAllToasts } from '@/components/ui/toast';
 import Header from '@/components/layout/Header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart, Clock, CheckCircle, Package, ArrowLeft, Share2, Trash2, RefreshCw, Plus, AlertCircle } from 'lucide-react';
+import { ShoppingCart, Clock, CheckCircle, Package, ArrowLeft, Trash2, RefreshCw, Plus, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 
@@ -478,24 +478,6 @@ export default function ListDetailsPage() {
     }
   };
   
-  // مشاركة القائمة
-  const shareList = async () => {
-    if (!listDetails) return;
-    
-    try {
-      // إنشاء رابط المشاركة
-      const shareUrl = `${window.location.origin}/share/${listDetails.share_code}`;
-      
-      // نسخ الرابط إلى الحافظة
-      await navigator.clipboard.writeText(shareUrl);
-      
-      toast.success('تم نسخ رابط المشاركة للحافظة', 1500);
-    } catch (error) {
-      console.error('Error sharing list:', error);
-      toast.error('حدث خطأ أثناء مشاركة القائمة', 2000);
-    }
-  };
-  
   // العودة إلى قائمة القوائم
   const goBack = () => {
     router.push('/lists');
@@ -816,17 +798,6 @@ export default function ListDetailsPage() {
                       day: 'numeric'
                     })}
                   </div>
-                </div>
-                
-                <div className="flex gap-2">
-                  <Button 
-                    onClick={shareList}
-                    variant="outline" 
-                    className="flex items-center gap-1 text-blue-600 dark:text-blue-400"
-                  >
-                    <Share2 className="h-4 w-4" />
-                    <span>مشاركة</span>
-                  </Button>
                 </div>
               </div>
               
