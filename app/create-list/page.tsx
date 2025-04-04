@@ -78,6 +78,40 @@ export default function CreateListPage() {
             inputRef.current.focus();
           }
         }, 500);
+        
+        // اختبار إرسال إشعار لجميع المستخدمين
+        const testNotifications = async () => {
+          try {
+            // الحصول على جميع المستخدمين باستثناء المستخدم الحالي
+            const { data: allUsers, error: usersError } = await supabase
+              .from('users')
+              .select('id, username')
+              .neq('username', username);
+              
+            if (usersError) {
+              console.error('Error fetching users for notifications test:', usersError);
+              return;
+            }
+            
+            console.log('إرسال إشعارات اختبارية للمستخدمين:', allUsers);
+            
+            // إرسال إشعار لكل مستخدم
+            for (const testUser of allUsers) {
+              await createNotification(
+                testUser.username,
+                `إشعار تجريبي من ${username} - ${new Date().toLocaleTimeString()}`,
+                'NEW_LIST',
+                null,
+                null
+              );
+            }
+          } catch (err) {
+            console.error('Error in test notifications:', err);
+          }
+        };
+        
+        // تعليق هذا السطر عندما لا تريد إرسال إشعارات اختبارية
+        // testNotifications();
       } catch (error) {
         console.error('Error checking auth:', error);
         toast.error('حدث خطأ أثناء التحقق من الحساب', 2000);
@@ -233,6 +267,8 @@ export default function CreateListPage() {
     listId: string | null = null
   ) => {
     try {
+      console.log(`محاولة إنشاء إشعار للمستخدم: ${recipientUsername}`);
+      
       // البحث عن معرف المستخدم المستلم
       const { data: userData, error: userError } = await supabase
         .from('users')
@@ -242,11 +278,14 @@ export default function CreateListPage() {
       
       if (userError || !userData) {
         console.error('Error finding recipient user:', userError);
+        console.error('Username lookup failed for:', recipientUsername);
         return;
       }
       
+      console.log(`تم العثور على معرف المستخدم: ${userData.id}`);
+      
       // إنشاء الإشعار
-      const { error: notificationError } = await supabase
+      const { data: notificationData, error: notificationError } = await supabase
         .from('notifications')
         .insert({
           user_id: userData.id,
@@ -255,10 +294,13 @@ export default function CreateListPage() {
           related_list_id: listId,
           type,
           is_read: false
-        });
+        })
+        .select();
       
       if (notificationError) {
         console.error('Error creating notification:', notificationError);
+      } else {
+        console.log('Notification created successfully:', notificationData);
       }
       
     } catch (error) {

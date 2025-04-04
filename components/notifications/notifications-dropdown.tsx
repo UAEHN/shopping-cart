@@ -14,6 +14,13 @@ export function NotificationsDropdown() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   
+  // سجل عند تحميل المكون
+  useEffect(() => {
+    if (user) {
+      console.log(`تحميل مكون NotificationsDropdown للمستخدم: ${user.id}`);
+    }
+  }, [user]);
+  
   const { 
     notifications, 
     unreadCount, 
@@ -21,6 +28,13 @@ export function NotificationsDropdown() {
     markAsRead, 
     markAllAsRead 
   } = useNotifications(user?.id || null, 10);
+
+  // رصد تغييرات الإشعارات
+  useEffect(() => {
+    if (user) {
+      console.log(`NotificationsDropdown: عدد الإشعارات: ${notifications.length}, غير مقروءة: ${unreadCount}`);
+    }
+  }, [notifications, unreadCount, user]);
 
   // إغلاق القائمة عند النقر خارجها
   useEffect(() => {
@@ -54,6 +68,8 @@ export function NotificationsDropdown() {
 
   // معالجة النقر على الإشعار
   const handleNotificationClick = (notification: Notification) => {
+    console.log(`النقر على الإشعار: ${notification.id}`);
+    
     // تحديث الإشعار كمقروء
     markAsRead(notification.id);
     
@@ -80,11 +96,26 @@ export function NotificationsDropdown() {
     }
   };
 
+  const handleToggleDropdown = () => {
+    setIsOpen(!isOpen);
+    console.log(`تبديل حالة القائمة: ${!isOpen}`);
+    
+    if (!isOpen) {
+      // عرض معلومات الإشعارات في الكونسول عند فتح القائمة
+      console.log('معلومات الإشعارات الحالية:', notifications);
+    }
+  };
+
+  const handleMarkAllAsRead = () => {
+    console.log('تعيين جميع الإشعارات كمقروءة');
+    markAllAsRead();
+  };
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button
         className="relative p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggleDropdown}
         aria-label="إشعارات"
       >
         <Bell className="h-6 w-6" />
@@ -106,9 +137,7 @@ export function NotificationsDropdown() {
             {unreadCount > 0 && (
               <button 
                 className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
-                onClick={() => {
-                  markAllAsRead();
-                }}
+                onClick={handleMarkAllAsRead}
               >
                 <div className="flex items-center gap-1">
                   <MailCheck className="h-4 w-4" />

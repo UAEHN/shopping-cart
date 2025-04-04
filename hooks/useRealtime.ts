@@ -179,6 +179,8 @@ export const useNotifications = (userId: string | null, limit: number = 10) => {
       return;
     }
 
+    console.log(`بدء تحميل الإشعارات للمستخدم: ${userId}`);
+
     // جلب الإشعارات الأولية
     const fetchNotifications = async () => {
       setIsLoading(true);
@@ -191,14 +193,17 @@ export const useNotifications = (userId: string | null, limit: number = 10) => {
           .limit(limit);
 
         if (error) {
+          console.error('خطأ في جلب الإشعارات:', error);
           throw error;
         }
 
+        console.log(`تم جلب ${data?.length || 0} إشعار للمستخدم ${userId}:`, data);
         setNotifications(data as Notification[]);
         
         // حساب عدد الإشعارات غير المقروءة
         const unreadNotifications = data.filter(notification => !notification.is_read);
         setUnreadCount(unreadNotifications.length);
+        console.log(`عدد الإشعارات غير المقروءة: ${unreadNotifications.length}`);
       } catch (err: any) {
         console.error('Error fetching notifications:', err);
         setError(err.message);
@@ -209,9 +214,13 @@ export const useNotifications = (userId: string | null, limit: number = 10) => {
 
     fetchNotifications();
 
+    // اسم قناة فريد للتأكد من عدم وجود تعارض
+    const uniqueChannelName = `notifications-list-${userId}-${Date.now()}`;
+    console.log(`إنشاء قناة جديدة للإشعارات: ${uniqueChannelName}`);
+
     // الاشتراك في التغييرات الجديدة في الإشعارات
     const notificationsSubscription = supabase
-      .channel(`notifications-${userId}`)
+      .channel(uniqueChannelName)
       .on(
         'postgres_changes',
         {
@@ -222,6 +231,7 @@ export const useNotifications = (userId: string | null, limit: number = 10) => {
         },
         (payload) => {
           const newNotification = payload.new as Notification;
+          console.log('تم استلام إشعار جديد في useNotifications:', newNotification);
           
           // إضافة الإشعار الجديد في بداية القائمة مع المحافظة على الحد الأقصى
           setNotifications(prevNotifications => {
@@ -244,6 +254,7 @@ export const useNotifications = (userId: string | null, limit: number = 10) => {
         },
         (payload) => {
           const updatedNotification = payload.new as Notification;
+          console.log('تم تحديث حالة الإشعار:', updatedNotification);
           
           setNotifications(prevNotifications =>
             prevNotifications.map(notification =>
@@ -261,10 +272,17 @@ export const useNotifications = (userId: string | null, limit: number = 10) => {
           });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log(`حالة اشتراك قائمة الإشعارات (useNotifications): ${status}`);
+        
+        if (status === 'SUBSCRIBED') {
+          console.log(`تم الاشتراك بنجاح في قناة الإشعارات للمستخدم: ${userId}`);
+        }
+      });
 
     // تنظيف الاشتراكات
     return () => {
+      console.log(`إلغاء الاشتراك في قناة الإشعارات: ${uniqueChannelName}`);
       supabase.removeChannel(notificationsSubscription);
     };
   }, [userId, limit]);
