@@ -4,7 +4,6 @@
   "outputDirectory": ".next",
   "installCommand": "npm install",
   "framework": "nextjs",
-  "regions": ["dxb1"],
   "headers": [
     {
       "source": "/manifest.json",
