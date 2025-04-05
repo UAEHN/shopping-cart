@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>غير متصل بالإنترنت | قوائم التسوق</title>
+  <style>
+    body {
+      font-family: 'Tajawal', sans-serif;
+      background-color: #f9fafb;
+      color: #1f2937;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+    }
+    .container {
+      max-width: 500px;
+      padding: 30px;
+      background-color: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      color: #3b82f6;
+      margin-bottom: 20px;
+    }
+    p {
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+    .icon {
+      font-size: 60px;
+      margin-bottom: 20px;
+    }
+    .button {
+      background-color: #3b82f6;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 500;
+      transition: background-color 0.3s;
+    }
+    .button:hover {
+      background-color: #2563eb;
+    }
+    @media (prefers-color-scheme: dark) {
+      body {
+        background-color: #111827;
+        color: #f9fafb;
+      }
+      .container {
+        background-color: #1f2937;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">📶</div>
+    <h1>أنت غير متصل بالإنترنت</h1>
+    <p>يبدو أنك غير متصل بالإنترنت حاليًا. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.</p>
+    <p>بعض ميزات تطبيق قوائم التسوق متاحة للاستخدام دون اتصال بالإنترنت، ولكن تحتاج إلى الاتصال بالإنترنت للوصول إلى جميع الميزات.</p>
+    <button class="button" onclick="window.location.reload()">إعادة المحاولة</button>
+  </div>
+</body>
+</html>

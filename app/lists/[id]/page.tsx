@@ -869,7 +869,7 @@ export default function ListDetailsPage() {
     }
   };
 
-  // إنشاء إشعار
+  // إنشاء إشعار - تم التعديل لاستدعاء RPC
   const createNotification = async (
     recipientUsername: string, 
     message: string, 
@@ -877,37 +877,52 @@ export default function ListDetailsPage() {
     itemId: string | null = null, 
     listId: string | null = null
   ) => {
+    console.log(`Attempting RPC notification for ${recipientUsername}, type: ${type}`);
     try {
-      // البحث عن معرف المستخدم المستلم
+      // --- الخطوة 1: البحث عن معرف المستخدم المستلم --- 
+      // نحتاج إلى ID المستلم، ليس فقط الاسم
       const { data: userData, error: userError } = await supabase
-        .from('users')
+        .from('users') 
         .select('id')
         .eq('username', recipientUsername)
-        .single();
-      
-      if (userError || !userData) {
-        console.error('Error finding recipient user:', userError);
-        return;
+        .maybeSingle(); // Use maybeSingle to avoid errors if user not found
+
+      if (userError) {
+        console.error('Error finding recipient user for notification:', userError);
+        // Don't throw, just log and potentially skip notification
+        return; 
       }
-      
-      // إنشاء الإشعار
-      const { error: notificationError } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: userData.id,
-          message,
-          related_item_id: itemId,
-          related_list_id: listId,
-          type,
-          is_read: false
-        });
-      
-      if (notificationError) {
-        console.error('Error creating notification:', notificationError);
+
+      if (!userData) {
+        console.error(`Recipient user "${recipientUsername}" not found for notification.`);
+        return; // Skip notification if recipient doesn't exist
       }
-      
+
+      const recipientUserId = userData.id;
+
+      // --- الخطوة 2: تحضير واستدعاء دالة RPC --- 
+      const params = {
+        recipientUserId: recipientUserId,
+        message,
+        type,
+        relatedItemId: itemId,
+        relatedListId: listId,
+      };
+
+      console.log('Calling create_notification_rpc with params:', params);
+
+      const { data: rpcData, error: rpcError } = await supabase.rpc('create_notification_rpc', { params });
+
+      if (rpcError) {
+        console.error('RPC Error creating notification:', rpcError);
+      } else if (rpcData?.error) {
+        console.error('Function Error creating notification:', rpcData.error, rpcData.details);
+      } else {
+        console.log('Notification created successfully via RPC:', rpcData);
+      }
     } catch (error) {
-      console.error('Error in notification creation:', error);
+      // Capture any other unexpected errors
+      console.error('Exception in createNotification (RPC call):', error);
     }
   };
   

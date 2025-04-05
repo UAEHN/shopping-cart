@@ -102,7 +102,7 @@ export default function LoginPage() {
       </div>
       
       <Card className="w-full max-w-md border-gray-200 dark:border-gray-700 shadow-lg dark:shadow-gray-800/20 rounded-xl overflow-hidden transition-all duration-300 animate-fadeIn">
-        <CardHeader className="bg-gradient-to-r from-blue-50 to-white dark:from-gray-800 dark:to-gray-750 pb-8">
+        <CardHeader className="bg-gradient-to-r from-blue-50 to-white dark:from-gray-900 dark:to-gray-700 pb-8">
           <CardTitle className="text-2xl font-bold text-center text-gray-900 dark:text-white">
             {isLogin ? 'تسجيل الدخول' : 'إنشاء حساب'}
           </CardTitle>

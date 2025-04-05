@@ -4,6 +4,7 @@ import "./globals.css";
 import Navbar from "@/components/layout/Navbar";
 import { Providers } from "./providers";
 import { Toaster } from "@/components/ui/toast";
+import { RegisterSW } from "@/components/pwa/register-sw";
 
 // استيراد خط مناسب للغة العربية
 const tajawal = Tajawal({ 
@@ -20,6 +21,16 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "عربة التسوق | Shopping Cart",
   description: "تطبيق لإنشاء وإرسال قوائم التسوق بسهولة",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "قوائم التسوق",
+  },
+  applicationName: "قوائم التسوق التفاعلية",
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export const viewport: Viewport = {
@@ -38,6 +49,12 @@ export default function RootLayout({
     <html lang="ar" dir="rtl" className="scroll-smooth" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/icon.png" />
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="قوائم التسوق" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="theme-color" content="#3b82f6" />
       </head>
       <body className={`${tajawal.variable} ${inter.variable} font-tajawal min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 antialiased`}>
         <Providers>
@@ -46,6 +63,7 @@ export default function RootLayout({
           </div>
           <Navbar />
           <Toaster />
+          <RegisterSW />
         </Providers>
       </body>
     </html>

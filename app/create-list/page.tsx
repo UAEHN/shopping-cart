@@ -80,38 +80,40 @@ export default function CreateListPage() {
         }, 500);
         
         // اختبار إرسال إشعار لجميع المستخدمين
-        const testNotifications = async () => {
-          try {
-            // الحصول على جميع المستخدمين باستثناء المستخدم الحالي
-            const { data: allUsers, error: usersError } = await supabase
-              .from('users')
-              .select('id, username')
-              .neq('username', username);
+        // const testNotifications = async () => { // Commented out start
+        //   try {
+        //     // الحصول على جميع المستخدمين باستثناء المستخدم الحالي
+        //     const { data: allUsers, error: usersError } = await supabase
+        //       .from('users')
+        //       .select('id, username')
+        //       .neq('username', username);
               
-            if (usersError) {
-              console.error('Error fetching users for notifications test:', usersError);
-              return;
-            }
+        //     if (usersError) {
+        //       console.error('Error fetching users for notifications test:', usersError);
+        //       return;
+        //     }
             
-            console.log('إرسال إشعارات اختبارية للمستخدمين:', allUsers);
+        //     console.log('إرسال إشعارات اختبارية للمستخدمين:', allUsers);
             
-            // إرسال إشعار لكل مستخدم
-            for (const testUser of allUsers) {
-              await createNotification(
-                testUser.username,
-                `إشعار تجريبي من ${username} - ${new Date().toLocaleTimeString()}`,
-                'NEW_LIST',
-                null,
-                null
-              );
-            }
-          } catch (err) {
-            console.error('Error in test notifications:', err);
-          }
-        };
+        //     // إرسال إشعار لكل مستخدم
+        //     for (const testUser of allUsers) {
+        //       await createNotification(
+        //         // Need to fetch user object properly here if re-enabled
+        //         // For now, this structure won't work with the modified createNotification
+        //         testUser, // This won't work directly anymore, needs {id, username} object
+        //         `إشعار تجريبي من ${username} - ${new Date().toLocaleTimeString()}`,
+        //         'NEW_LIST',
+        //         null,
+        //         null
+        //       );
+        //     }
+        //   } catch (err) {
+        //     console.error('Error in test notifications:', err);
+        //   }
+        // };
         
         // تعليق هذا السطر عندما لا تريد إرسال إشعارات اختبارية
-        testNotifications();
+        // testNotifications(); // Commented out call
       } catch (error) {
         console.error('Error checking auth:', error);
         toast.error('حدث خطأ أثناء التحقق من الحساب', 2000);
@@ -181,95 +183,74 @@ export default function CreateListPage() {
   };
 
   // البحث عن مستخدم بالاسم
-  const findUserByUsername = async (username: string) => {
+  const findUserByUsername = async (username: string): Promise<{ id: string; username: string; } | null> => {
     try {
-      console.log(`البحث عن المستخدم: ${username}`);
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, username')
+        .eq('username', username)
+        .limit(1);
       
-      if (!username || username.trim() === '') {
-        console.error('اسم المستخدم فارغ');
+      if (error) {
+        console.error('Error fetching user by username:', error);
         return null;
       }
       
-      // استعلام البحث عن المستخدم بالاسم - بحث دقيق
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('username', username.trim())
-        .single();
-
-      // إذا لم يتم العثور على المستخدم، حاول البحث بشكل أقل تقييداً
-      if (error || !data) {
-        console.log(`لم يتم العثور على "${username}" بالمطابقة الدقيقة، جاري محاولة البحث بشكل جزئي...`);
-        
-        // بحث جزئي باستخدام ilike
-        const { data: partialData, error: partialError } = await supabase
-          .from('users')
-          .select('*')
-          .ilike('username', `%${username.trim()}%`)
-          .limit(1);
-          
-        if (partialError) {
-          console.error('خطأ في البحث الجزئي عن المستخدم:', partialError);
-          throw new Error(`فشل البحث عن المستخدم: ${partialError.message}`);
-        }
-        
-        if (partialData && partialData.length > 0) {
-          console.log(`تم العثور على المستخدم بالبحث الجزئي:`, partialData[0]);
-          return partialData[0];
-        }
-        
-        console.error(`لم يتم العثور على أي مستخدم باسم: "${username}"`);
-        throw new Error(`لم يتم العثور على أي مستخدم باسم: "${username}"`);
+      if (data && data.length > 0) {
+          return data[0];
+      } else {
+          return null;
       }
       
-      console.log(`تم العثور على المستخدم:`, data);
-      return data;
-    } catch (error: any) {
-      console.error(`فشل البحث عن المستخدم المستلم: ${error?.message || JSON.stringify(error)}`);
-      toast.error(`فشل البحث عن المستخدم: ${error?.message || 'حدث خطأ غير متوقع'}`);
+    } catch (error) {
+      console.error('Exception in findUserByUsername:', error);
       return null;
     }
   };
 
   // معالجة اختيار المستلم وإرسال القائمة
   const handleSelectRecipient = async (recipientUsername: string) => {
-    if (!recipientUsername) {
-      toast.error('الرجاء اختيار مستلم للقائمة', 1500);
-      return;
+    setIsSending(true);
+    setIsDialogOpen(false);
+
+    // Get current user ID directly for insertion
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+        console.error('Error getting current user for list creation:', authError);
+        toast.error('خطأ في الحصول على المستخدم الحالي', 2000);
+        setIsSending(false);
+        return;
     }
+
+    const currentUserId = user.id;
+    // Get username from metadata or profile (as done in useEffect)
+    const currentUserUsername = user.user_metadata?.username || (await findUserByUsername(user.email || ''))?.username || ''; // Fallback needed if username isn't in metadata
     
+    if (!currentUserUsername) { 
+        console.error('Could not determine current username for list creation');
+        toast.error('لم يتم تحديد اسم المستخدم الحالي', 2000);
+        setIsSending(false);
+        return;
+    }
+
     try {
-      // مسح الإشعارات الحالية قبل البدء
-      clearAllToasts();
-      setIsSending(true);
-      
-      // البحث عن المستخدم المستلم
-      const recipientUser = await findUserByUsername(recipientUsername);
-      
-      if (!recipientUser) {
-        console.error(`لم يتم العثور على المستخدم: "${recipientUsername}"`);
-        toast.error(`لم يتم العثور على مستخدم باسم "${recipientUsername}"`);
+      // Ensure recipient exists
+      const recipient = await findUserByUsername(recipientUsername);
+      if (!recipient) {
+        toast.error(`المستخدم '${recipientUsername}' غير موجود`, 2000);
         setIsSending(false);
         return;
       }
       
-      console.log(`تم العثور على المستخدم المستلم:`, recipientUser);
-      
-      // الحصول على معرّف المستخدم الحالي
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error('User not found');
-      }
-      
-      // إنشاء القائمة في جدول lists
+      // إنشاء القائمة في جدول lists, including creator_id
       const { data: listData, error: listError } = await supabase
         .from('lists')
         .insert({
-          creator_username: currentUser,
-          recipient_username: recipientUsername,
+          creator_username: currentUserUsername, // Use fetched username
+          creator_id: currentUserId, // Add the creator_id
+          recipient_username: recipient.username,
           status: 'new'
-          // سيتم إنشاء id و share_code و created_at تلقائيًا
         })
         .select('id')
         .single();
@@ -288,7 +269,6 @@ export default function CreateListPage() {
         list_id: listData.id,
         name: item.name,
         purchased: false
-        // سيتم إنشاء id و created_at و updated_at تلقائيًا
       }));
       
       const { error: itemsError } = await supabase
@@ -302,8 +282,8 @@ export default function CreateListPage() {
       
       // إنشاء إشعار لمستلم القائمة
       await createNotification(
-        recipientUsername,
-        `أرسل لك ${currentUser} قائمة تسوق جديدة`,
+        recipient,
+        `أرسل لك ${currentUserUsername} قائمة تسوق جديدة`,
         'NEW_LIST',
         null,
         listData.id
@@ -321,48 +301,48 @@ export default function CreateListPage() {
     }
   };
 
-  // إنشاء إشعار
+  // إنشاء إشعار - تعديل لاستدعاء RPC
   const createNotification = async (
-    recipientUsername: string, 
-    message: string, 
-    type: string, 
-    itemId: string | null = null, 
+    recipientUser: { id: string; username: string; } | null,
+    message: string,
+    type: string,
+    itemId: string | null = null,
     listId: string | null = null
   ) => {
+    if (!recipientUser) {
+      console.error(`Cannot create notification: recipient user data is null.`);
+      return;
+    }
+
+    const params = {
+      recipientUserId: recipientUser.id,
+      message,
+      type,
+      relatedItemId: itemId,
+      relatedListId: listId,
+    };
+
+    console.log('Calling create_notification_rpc with params:', params);
+
     try {
-      console.log(`محاولة إنشاء إشعار للمستخدم: ${recipientUsername}`);
-      
-      // البحث عن معرف المستخدم المستلم
-      const recipientUser = await findUserByUsername(recipientUsername);
-      
-      if (!recipientUser) {
-        console.error(`فشل إنشاء الإشعار: لم يتم العثور على المستخدم ${recipientUsername}`);
-        return;
-      }
-      
-      console.log(`تم العثور على معرف المستخدم: ${recipientUser.id}`);
-      
-      // إنشاء الإشعار
-      const { data: notificationData, error: notificationError } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: recipientUser.id,
-          message,
-          related_item_id: itemId,
-          related_list_id: listId,
-          type,
-          is_read: false
-        })
-        .select();
-      
-      if (notificationError) {
-        console.error('Error creating notification:', notificationError);
+      const { data, error } = await supabase.rpc('create_notification_rpc', { params });
+
+      if (error) {
+        // Handle RPC error
+        console.error('RPC Error creating notification:', error);
+        // Optionally show toast error to user based on error content
+        // e.g., if (data?.error) toast.error(data.error);
+      } else if (data?.error) {
+        // Handle error returned from the function logic (e.g., permission denied)
+        console.error('Function Error creating notification:', data.error, data.details);
+        // Optionally show toast error
+        // toast.error(data.error);
       } else {
-        console.log('Notification created successfully:', notificationData);
+        // Success!
+        console.log('Notification created successfully via RPC:', data);
       }
-      
-    } catch (error) {
-      console.error('Error in notification creation:', error);
+    } catch (rpcCatchError) {
+      console.error('Exception calling RPC:', rpcCatchError);
     }
   };
 

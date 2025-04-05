@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/services/supabase';
 import { ListItem } from '@/types/list';
 import { ListMessage } from '@/types/message';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 // أنواع الإشعارات
 export type NotificationType = 'NEW_LIST' | 'LIST_STATUS' | 'NEW_ITEM' | 'ITEM_STATUS';
@@ -173,54 +174,73 @@ export const useNotifications = (userId: string | null, limit: number = 10) => {
 
   useEffect(() => {
     if (!userId) {
+      // Reset state if no user ID is provided
       setNotifications([]);
       setUnreadCount(0);
       setIsLoading(false);
+      setError(null); // Clear any previous errors
       return;
     }
 
-    console.log(`بدء تحميل الإشعارات للمستخدم: ${userId}`);
+    // Set loading state only when starting for a new user ID
+    setIsLoading(true);
+    setError(null); // Clear previous errors
+    console.log(`useNotifications: Starting effect for user: ${userId}`);
+
+    let isMounted = true; // Flag to prevent state updates after unmount
+    let channel: RealtimeChannel | null = null; // Keep track of the channel instance
 
     // جلب الإشعارات الأولية
     const fetchNotifications = async () => {
-      setIsLoading(true);
+      console.log(`useNotifications: Fetching initial notifications for user: ${userId}`);
       try {
-        const { data, error } = await supabase
+        const { data, error: fetchError } = await supabase
           .from('notifications')
-          .select('*')
+          .select('*', { count: 'exact' }) // Use count for unread calculation later if needed
           .eq('user_id', userId)
           .order('created_at', { ascending: false })
           .limit(limit);
 
-        if (error) {
-          console.error('خطأ في جلب الإشعارات:', error);
-          throw error;
-        }
+        if (!isMounted) return; // Don't update state if component unmounted
 
-        console.log(`تم جلب ${data?.length || 0} إشعار للمستخدم ${userId}:`, data);
-        setNotifications(data as Notification[]);
-        
-        // حساب عدد الإشعارات غير المقروءة
-        const unreadNotifications = data.filter(notification => !notification.is_read);
-        setUnreadCount(unreadNotifications.length);
-        console.log(`عدد الإشعارات غير المقروءة: ${unreadNotifications.length}`);
+        if (fetchError) {
+          console.error('useNotifications: Error fetching notifications:', fetchError);
+          setError(fetchError.message);
+          setNotifications([]); // Clear notifications on error
+          setUnreadCount(0);
+        } else {
+          console.log(`useNotifications: Fetched ${data?.length || 0} notifications for user ${userId}:`, data);
+          setNotifications(data as Notification[]);
+          const unread = data.filter(n => !n.is_read).length;
+          setUnreadCount(unread);
+          console.log(`useNotifications: Initial unread count: ${unread}`);
+        }
       } catch (err: any) {
-        console.error('Error fetching notifications:', err);
-        setError(err.message);
+        if (isMounted) {
+          console.error('useNotifications: Exception fetching notifications:', err);
+          setError(err.message || 'An unexpected error occurred');
+          setNotifications([]);
+          setUnreadCount(0);
+        }
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     fetchNotifications();
 
-    // استخدام اسم قناة ثابت بدلاً من اسم فريد لتجنب تعدد الاشتراكات
+    // --- Realtime Subscription Setup ---
     const channelName = `notifications-list-${userId}`;
-    console.log(`إنشاء قناة للإشعارات: ${channelName}`);
+    console.log(`useNotifications: Setting up channel: ${channelName}`);
 
-    // الاشتراك في التغييرات الجديدة في الإشعارات
-    const notificationsSubscription = supabase
-      .channel(channelName)
+    // Remove existing channel first if any (safer approach)
+    supabase.channel(channelName, { // Provide config with broadcast and presence keys if needed
+        config: {
+          broadcast: { self: true }, // Example config
+        },
+      })
       .on(
         'postgres_changes',
         {
@@ -230,18 +250,11 @@ export const useNotifications = (userId: string | null, limit: number = 10) => {
           filter: `user_id=eq.${userId}`
         },
         (payload) => {
+          if (!isMounted) return;
           const newNotification = payload.new as Notification;
-          console.log('تم استلام إشعار جديد في useNotifications:', newNotification);
-          
-          // إضافة الإشعار الجديد في بداية القائمة مع المحافظة على الحد الأقصى
-          setNotifications(prevNotifications => {
-            const updatedNotifications = [newNotification, ...prevNotifications];
-            // التأكد من أن عدد الإشعارات لا يتجاوز الحد المطلوب
-            return updatedNotifications.slice(0, limit);
-          });
-          
-          // تحديث عدد الإشعارات غير المقروءة
-          setUnreadCount(prevCount => prevCount + 1);
+          console.log('useNotifications: Received new notification:', newNotification);
+          setNotifications(prev => [newNotification, ...prev].slice(0, limit)); // Add to start, maintain limit
+          setUnreadCount(prev => prev + 1);
         }
       )
       .on(
@@ -253,47 +266,63 @@ export const useNotifications = (userId: string | null, limit: number = 10) => {
           filter: `user_id=eq.${userId}`
         },
         (payload) => {
+          if (!isMounted) return;
           const updatedNotification = payload.new as Notification;
-          console.log('تم تحديث حالة الإشعار:', updatedNotification);
-          
-          setNotifications(prevNotifications =>
-            prevNotifications.map(notification =>
-              notification.id === updatedNotification.id 
-                ? updatedNotification 
-                : notification
-            )
+          console.log('useNotifications: Received updated notification:', updatedNotification);
+          setNotifications(prev =>
+            prev.map(n => n.id === updatedNotification.id ? updatedNotification : n)
           );
-          
-          // إعادة حساب عدد الإشعارات غير المقروءة
+          // Recalculate unread count after update
           setNotifications(currentNotifications => {
-            const unreadCount = currentNotifications.filter(n => !n.is_read).length;
-            setUnreadCount(unreadCount);
-            return currentNotifications;
+             const newUnreadCount = currentNotifications.filter(n => !n.is_read).length;
+             if (newUnreadCount !== unreadCount) { // Only update state if changed
+                setUnreadCount(newUnreadCount);
+                console.log(`useNotifications: Unread count updated to: ${newUnreadCount}`);
+             }
+             return currentNotifications; // Important: return the current state for map iteration
           });
         }
       )
-      .subscribe((status) => {
-        console.log(`حالة اشتراك قائمة الإشعارات (useNotifications): ${status}`);
-        
+      .subscribe((status, err) => {
+        console.log(`useNotifications: Channel ${channelName} subscription status: ${status}`);
+        if (!isMounted) return;
+
         if (status === 'SUBSCRIBED') {
-          console.log(`تم الاشتراك بنجاح في قناة الإشعارات للمستخدم: ${userId}`);
-        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-          console.error(`فشل الاشتراك في قناة الإشعارات (useNotifications). الحالة: ${status}`);
-          
-          // محاولة إعادة الاتصال بعد فترة قصيرة
-          setTimeout(() => {
-            console.log('محاولة إعادة الاتصال بقناة الإشعارات...');
-            notificationsSubscription.subscribe();
-          }, 2000);
+          console.log(`useNotifications: Successfully subscribed to channel: ${channelName}`);
+          setError(null); // Clear error on successful subscription
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error(`useNotifications: Channel subscription error/timeout. Status: ${status}`, err);
+          setError(`Subscription failed: ${status}. ${err?.message || ''}`);
+          // Consider implementing a retry mechanism with backoff here if needed
+          // For now, just log the error. Automatic retries might be handled by the SDK.
+        } else if (status === 'CLOSED') {
+           console.warn(`useNotifications: Channel ${channelName} was closed.`);
+           // The channel might close intentionally on cleanup or due to network issues.
+           // No automatic retry here unless specifically required.
         }
       });
 
-    // تنظيف الاشتراكات
+      // Store the channel instance
+      channel = supabase.channel(channelName);
+
+
+    // --- Cleanup Function ---
     return () => {
-      console.log(`إلغاء الاشتراك في قناة الإشعارات: ${channelName}`);
-      supabase.removeChannel(notificationsSubscription);
+      console.log(`useNotifications: Cleaning up effect for user: ${userId}, removing channel: ${channelName}`);
+      isMounted = false; // Mark as unmounted
+      if (channel) {
+        supabase.removeChannel(channel)
+          .then((status) => console.log(`useNotifications: Channel ${channelName} removal status: ${status}`))
+          .catch((error) => console.error(`useNotifications: Error removing channel ${channelName}:`, error));
+        channel = null; // Clear the reference
+      } else {
+         // Attempt removal by name if channel reference is lost (less ideal)
+         supabase.removeChannel(supabase.channel(channelName))
+             .then((status) => console.log(`useNotifications: Channel ${channelName} (removed by name) status: ${status}`))
+             .catch((error) => console.error(`useNotifications: Error removing channel ${channelName} by name:`, error));
+      }
     };
-  }, [userId, limit]);
+  }, [userId, limit]); // Re-run effect if userId or limit changes
 
   // وظيفة لتحديث حالة الإشعار إلى مقروء
   const markAsRead = async (notificationId: string) => {
@@ -351,12 +380,12 @@ export const useNotifications = (userId: string | null, limit: number = 10) => {
     }
   };
 
-  return { 
-    notifications, 
-    unreadCount, 
-    isLoading, 
-    error, 
-    markAsRead, 
-    markAllAsRead 
+  return {
+    notifications,
+    unreadCount,
+    isLoading,
+    error,
+    markAsRead,
+    markAllAsRead
   };
 }; 
