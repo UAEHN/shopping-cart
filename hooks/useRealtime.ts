@@ -250,11 +250,26 @@ export const useNotifications = (userId: string | null, limit: number = 10) => {
           filter: `user_id=eq.${userId}`
         },
         (payload) => {
-          if (!isMounted) return;
+          console.log(`useNotifications: New notification received for user ${userId}:`, payload.new);
           const newNotification = payload.new as Notification;
-          console.log('useNotifications: Received new notification:', newNotification);
-          setNotifications(prev => [newNotification, ...prev].slice(0, limit)); // Add to start, maintain limit
-          setUnreadCount(prev => prev + 1);
+
+          // Add to the beginning of the list & update unread count
+          if (isMounted) { // Check if component is still mounted
+            setNotifications(prev => [newNotification, ...prev.slice(0, limit - 1)]);
+            setUnreadCount(prev => prev + 1);
+
+            // Play notification sound
+            try {
+              const audio = new Audio('/sounds/notification.mp3'); // Path relative to public folder
+              audio.play().catch(playError => {
+                // Autoplay might be blocked by the browser initially
+                // Log the error but don't crash
+                console.warn('Audio play failed (possibly due to autoplay restrictions):', playError);
+              });
+            } catch (audioError) {
+              console.error('Error creating or playing audio:', audioError);
+            }
+          }
         }
       )
       .on(

@@ -11,6 +11,7 @@ import { toast, clearAllToasts } from '@/components/ui/toast';
 import { supabase } from '@/services/supabase';
 import { ShoppingCart, Plus, X, Send, Trash2 } from 'lucide-react';
 import SelectRecipientDialog from '@/components/lists/select-recipient-dialog';
+import { createNotification } from '@/utils/notifications';
 
 interface ListItem {
   id: string;
@@ -298,51 +299,6 @@ export default function CreateListPage() {
       console.error('Error sending list:', error);
       toast.error('حدث خطأ أثناء إرسال القائمة', 2000);
       setIsSending(false);
-    }
-  };
-
-  // إنشاء إشعار - تعديل لاستدعاء RPC
-  const createNotification = async (
-    recipientUser: { id: string; username: string; } | null,
-    message: string,
-    type: string,
-    itemId: string | null = null,
-    listId: string | null = null
-  ) => {
-    if (!recipientUser) {
-      console.error(`Cannot create notification: recipient user data is null.`);
-      return;
-    }
-
-    const params = {
-      recipientUserId: recipientUser.id,
-      message,
-      type,
-      relatedItemId: itemId,
-      relatedListId: listId,
-    };
-
-    console.log('Calling create_notification_rpc with params:', params);
-
-    try {
-      const { data, error } = await supabase.rpc('create_notification_rpc', { params });
-
-      if (error) {
-        // Handle RPC error
-        console.error('RPC Error creating notification:', error);
-        // Optionally show toast error to user based on error content
-        // e.g., if (data?.error) toast.error(data.error);
-      } else if (data?.error) {
-        // Handle error returned from the function logic (e.g., permission denied)
-        console.error('Function Error creating notification:', data.error, data.details);
-        // Optionally show toast error
-        // toast.error(data.error);
-      } else {
-        // Success!
-        console.log('Notification created successfully via RPC:', data);
-      }
-    } catch (rpcCatchError) {
-      console.error('Exception calling RPC:', rpcCatchError);
     }
   };
 
