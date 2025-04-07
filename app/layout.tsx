@@ -5,6 +5,8 @@ import Navbar from "@/components/layout/Navbar";
 import { Providers } from "./providers";
 import { Toaster } from "@/components/ui/toast";
 import { RegisterSW } from "@/components/pwa/register-sw";
+import BottomNav from "@/components/layout/bottom-nav";
+import RequestNotificationPermission from '@/components/functional/request-notification-permission';
 
 // استيراد خط مناسب للغة العربية
 const tajawal = Tajawal({ 
@@ -58,12 +60,14 @@ export default function RootLayout({
       </head>
       <body className={`${tajawal.variable} ${inter.variable} font-tajawal min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 antialiased`}>
         <Providers>
+          <RequestNotificationPermission />
           <div className="flex-1 pb-16 pt-16 max-w-screen-lg mx-auto w-full">
             {children}
           </div>
           <Navbar />
           <Toaster />
           <RegisterSW />
+          <BottomNav />
         </Providers>
       </body>
     </html>
