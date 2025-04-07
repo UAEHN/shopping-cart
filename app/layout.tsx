@@ -5,7 +5,6 @@ import Navbar from "@/components/layout/Navbar";
 import { Providers } from "./providers";
 import { Toaster } from "@/components/ui/toast";
 import { RegisterSW } from "@/components/pwa/register-sw";
-import BottomNav from "@/components/layout/bottom-nav";
 import RequestNotificationPermission from '@/components/functional/request-notification-permission';
 
 // استيراد خط مناسب للغة العربية
@@ -67,7 +66,6 @@ export default function RootLayout({
           <Navbar />
           <Toaster />
           <RegisterSW />
-          <BottomNav />
         </Providers>
       </body>
     </html>
