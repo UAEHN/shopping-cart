@@ -15,9 +15,10 @@ const firebaseConfig = {
     apiKey: "AIzaSyDP2GEOi2rszYH7-GEc_ct95ovRIGo1S_0",
     authDomain: "my-basket-27d79.firebaseapp.com",
     projectId: "my-basket-27d79",
-    storageBucket: "my-basket-27d79.firebasestorage.app",
+    storageBucket: "my-basket-27d79.appspot.com",
     messagingSenderId: "237850221493",
-    appId: "1:237850221493:web:761c75b4b8f49d406a17fc", 
+    appId: "1:237850221493:web:761c75b4b8f49d406a17fc",
+    measurementId: "G-QZ1FL452X5"
 };
 
 try {
