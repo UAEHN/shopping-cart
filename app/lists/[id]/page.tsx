@@ -181,26 +181,26 @@ export default function ListDetailsPage() {
     checkAuthAndLoadList();
     
     // --- إعداد اشتراك Realtime --- 
-    if (!listId) return;
-
+      if (!listId) return;
+      
     console.log(`إعداد اشتراك الوقت الفعلي لقائمة: ${listId}`);
-
-    const channel = supabase
-      .channel(`list-updates-${listId}`)
-      .on(
-        'postgres_changes',
-        {
+      
+        const channel = supabase
+          .channel(`list-updates-${listId}`)
+          .on(
+            'postgres_changes',
+            {
           event: '*', // Listen to INSERT, UPDATE, DELETE for items
-          schema: 'public',
-          table: 'items',
-          filter: `list_id=eq.${listId}`
-        },
-        (payload) => {
+              schema: 'public',
+              table: 'items',
+              filter: `list_id=eq.${listId}`
+            },
+            (payload) => {
           console.log(`تحديث Realtime لـ items في القائمة ${listId}:`, payload);
-
-          setListDetails((prevDetails) => {
-            if (!prevDetails) return prevDetails;
-            
+              
+                setListDetails((prevDetails) => {
+                  if (!prevDetails) return prevDetails;
+                  
             let updatedItems = [...prevDetails.items];
             let statusChanged = false;
             let newStatus = prevDetails.status;
@@ -209,7 +209,7 @@ export default function ListDetailsPage() {
               const newItem = payload.new as ListItem;
               if (!updatedItems.some(item => item.id === newItem.id)) {
                 updatedItems.push(newItem);
-                toast.info(`تمت إضافة منتج جديد: ${newItem.name}`, 1500);
+                  toast.info(`تمت إضافة منتج جديد: ${newItem.name}`, 1500);
               }
             } else if (payload.eventType === 'UPDATE') {
               const updatedItem = payload.new as ListItem;
@@ -228,12 +228,12 @@ export default function ListDetailsPage() {
               const anyPurchased = updatedItems.some(item => item.purchased);
 
               if (allPurchased) {
-                newStatus = 'completed';
-              } else if (anyPurchased) {
+                    newStatus = 'completed';
+                  } else if (anyPurchased) {
                 newStatus = 'opened'; // Or 'in_progress', ensure consistency later
-              } else {
-                newStatus = 'new';
-              }
+                  } else {
+                    newStatus = 'new';
+                  }
             } else {
               // If no items left, maybe set status to 'new' or keep as is?
               newStatus = 'new'; // Or prevDetails.status
@@ -243,23 +243,23 @@ export default function ListDetailsPage() {
 
             // IMPORTANT: DO NOT update the database from here.
             // Only update the local state.
-            return {
-              ...prevDetails,
+                  return {
+                    ...prevDetails,
               items: updatedItems,
               status: newStatus // Update local status
-            };
-          });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
+                  };
+                });
+            }
+          )
+          .on(
+            'postgres_changes',
+            {
           event: 'UPDATE', // Only listen to UPDATE for lists
-          schema: 'public',
-          table: 'lists',
-          filter: `id=eq.${listId}`
-        },
-        (payload) => {
+              schema: 'public',
+              table: 'lists',
+              filter: `id=eq.${listId}`
+            },
+            (payload) => {
           console.log(`تحديث Realtime لـ lists للقائمة ${listId}:`, payload);
           const updatedList = payload.new as ListDetails;
           setListDetails(prevDetails => {
@@ -268,12 +268,12 @@ export default function ListDetailsPage() {
             }
             // Show toast for status change initiated by the *other* user
             toast.info(`تم تحديث حالة القائمة إلى: ${updatedList.status}`); 
-            return { 
-              ...prevDetails, 
+                  return {
+                    ...prevDetails,
               status: updatedList.status, 
               updated_at: updatedList.updated_at 
-            };
-          });
+                  };
+                });
         }
       )
       .subscribe((status, err) => {
@@ -286,7 +286,7 @@ export default function ListDetailsPage() {
       });
 
     // --- Cleanup on unmount --- 
-    return () => {
+        return () => {
       console.log(`إلغاء اشتراك الوقت الفعلي للقائمة: ${listId}`);
       if (channel) {
         supabase.removeChannel(channel).catch(error => {
@@ -377,7 +377,7 @@ export default function ListDetailsPage() {
     
     // Get actor username (the one adding the item)
     const actorUsername = currentUser;
-
+    
     setIsAddingItem(true);
     
     try {
@@ -403,31 +403,32 @@ export default function ListDetailsPage() {
       
       // --- إنشاء إشعار لمستلم القائمة --- 
       // Check if the actor is not the recipient before sending notification
-      if (actorUsername !== listDetails.recipient_username) {
-        const notificationRecipientUsername = listDetails.recipient_username;
-        
-        // Fetch recipient user data
-        const { data: recipientData, error: userError } = await supabase
-          .from('users') 
-          .select('id, username')
-          .eq('username', notificationRecipientUsername)
-          .maybeSingle();
-
-        if (userError) {
-          console.error('Error finding notification recipient user for new item:', userError);
-        } else if (!recipientData) {
-          console.error(`Notification recipient user "${notificationRecipientUsername}" not found for new item.`);
-        } else {
-          // Only send if recipient found
-          createNotification(
-            recipientData, // Pass the user object
-            `${actorUsername} أضاف "${newItemName.trim()}" إلى قائمة التسوق`,
-            'NEW_ITEM', // Use a specific type
-            newItem.id,
-            listId
-          );
-        }
-      }
+      // REMOVED: Direct notification creation from frontend
+      // if (actorUsername !== listDetails.recipient_username) {
+      //   const notificationRecipientUsername = listDetails.recipient_username;
+      //   
+      //   // Fetch recipient user data
+      //   const { data: recipientData, error: userError } = await supabase
+      //     .from('users') 
+      //     .select('id, username')
+      //     .eq('username', notificationRecipientUsername)
+      //     .maybeSingle();
+      // 
+      //   if (userError) {
+      //     console.error('Error finding notification recipient user for new item:', userError);
+      //   } else if (!recipientData) {
+      //     console.error(`Notification recipient user "${notificationRecipientUsername}" not found for new item.`);
+      //   } else {
+      //     // Only send if recipient found
+      //     createNotification(
+      //       recipientData, // Pass the user object
+      //       `${actorUsername} أضاف "${newItemName.trim()}" إلى قائمة التسوق`,
+      //       'NEW_ITEM', // Use a specific type
+      //       newItem.id,
+      //       listId
+      //     );
+      //   }
+      // }
       // --- نهاية إنشاء الإشعار ---
       
       setNewItemName('');
@@ -603,11 +604,11 @@ export default function ListDetailsPage() {
   const completionPercentage = listDetails.items.length > 0
     ? Math.round((listDetails.items.filter(item => item.purchased).length / listDetails.items.length) * 100)
     : 0;
-  
+
   // تحديث حالة الشراء للعنصر
   const toggleItemPurchased = async (itemId: string, purchased: boolean) => {
     if (!listDetails || !currentUser) return;
-
+    
     const itemToUpdate = listDetails.items.find(item => item.id === itemId);
     if (!itemToUpdate) return;
     
@@ -615,45 +616,41 @@ export default function ListDetailsPage() {
 
     // Capture the state *before* the toggle to calculate the new list status later
     const itemsBeforeToggle = [...listDetails.items]; 
-
+    
     try {
       setIsUpdating(true);
-      const purchasedAt = purchased ? new Date().toISOString() : null;
-      
-      // 1. Update the item in the database
-      const { error: itemUpdateError } = await supabase
+
+      // Get current user ID for purchased_by
+      const { data: { user } } = await supabase.auth.getUser();
+      const currentUserId = user?.id; // It should exist if user is on this page
+
+      // تحديث العنصر في قاعدة البيانات
+      const { data: updatedItemData, error: itemUpdateError } = await supabase
         .from('items')
-        .update({ purchased, purchased_at: purchasedAt })
-        .eq('id', itemId);
-      
-      if (itemUpdateError) throw itemUpdateError;
+        .update({
+          purchased: purchased,
+          purchased_at: purchased ? new Date().toISOString() : null,
+          // إضافة معرف المستخدم الذي قام بالشطب، أو null إذا تم إلغاء الشطب
+          purchased_by: purchased ? currentUserId : null 
+        })
+        .eq('id', itemId)
+        .select() // Get the updated item back
+        .single();
+
+      if (itemUpdateError) {
+        console.error('Error updating item:', itemUpdateError);
+        throw itemUpdateError;
+      }
       
       // 2. Update local UI state for the item immediately
       const updatedItemsLocally = itemsBeforeToggle.map(item => 
-        item.id === itemId 
-          ? { ...item, purchased, purchased_at: purchasedAt } 
-          : item
+          item.id === itemId 
+            ? { ...item, purchased, purchased_at: purchased ? new Date().toISOString() : null } 
+            : item
       );
       setListDetails(prev => prev ? { ...prev, items: updatedItemsLocally } : null);
       toast.success(purchased ? 'تم تحديث حالة العنصر إلى "تم شراؤه"' : 'تم تحديث حالة العنصر إلى "لم يتم شراؤه"');
-
-      // --- 3. Send Item Update Notification --- 
-      const itemNotificationRecipientUsername = actorUsername === listDetails.creator_username 
-        ? listDetails.recipient_username 
-        : listDetails.creator_username;
-      const { data: itemRecipientData, error: itemUserError } = await supabase
-        .from('users').select('id, username').eq('username', itemNotificationRecipientUsername).maybeSingle();
-
-      if (!itemUserError && itemRecipientData) {
-        const itemNotificationMessage = purchased
-          ? `${actorUsername} قام بشراء "${itemToUpdate.name}"`
-          : `${actorUsername} ألغى شراء "${itemToUpdate.name}"`;
-        createNotification(itemRecipientData, itemNotificationMessage, 'ITEM_UPDATE', itemId, listId);
-      } else {
-        console.error('Error finding/sending item update notification recipient:', itemUserError || 'Not found');
-      }
-      // --- End Item Update Notification ---
-
+      
       // --- 4. Calculate new list status and update if changed --- 
       const currentListStatus = listDetails.status;
       let newListStatus = currentListStatus;
@@ -668,7 +665,7 @@ export default function ListDetailsPage() {
       }
 
       if (newListStatus !== currentListStatus) {
-        console.log(`List status changed from ${currentListStatus} to ${newListStatus}. Updating DB and notifying.`);
+        console.log(`List status changed from ${currentListStatus} to ${newListStatus}. Updating DB.`);
         
         // 4a. Update list status in DB
         const { error: listStatusUpdateError } = await supabase
@@ -682,26 +679,6 @@ export default function ListDetailsPage() {
         } else {
            // Update local state for status as well (redundant if realtime works, but safe)
            setListDetails(prev => prev ? { ...prev, status: newListStatus } : null);
-
-           // 4b. Send List Status Update Notification
-           const statusNotificationRecipientUsername = actorUsername === listDetails.creator_username 
-             ? listDetails.recipient_username 
-             : listDetails.creator_username; // Same recipient as item update
-           const { data: statusRecipientData, error: statusUserError } = await supabase
-             .from('users').select('id, username').eq('username', statusNotificationRecipientUsername).maybeSingle();
-
-           if (!statusUserError && statusRecipientData) {
-              let statusMessage = '';
-              switch (newListStatus) {
-                case 'completed': statusMessage = `قام ${actorUsername} بإكمال قائمة التسوق`; break;
-                case 'opened': statusMessage = `بدأ ${actorUsername} العمل على قائمة التسوق`; break;
-                case 'new': statusMessage = `قام ${actorUsername} بإعادة تعيين حالة قائمة التسوق`; break;
-                default: statusMessage = `قام ${actorUsername} بتحديث حالة القائمة إلى ${newListStatus}`;
-              }
-              createNotification(statusRecipientData, statusMessage, 'LIST_STATUS', null, listId);
-           } else {
-             console.error('Error finding/sending list status update notification recipient:', statusUserError || 'Not found');
-           }
         }
       }
       // --- End List Status Update Logic ---
@@ -724,7 +701,7 @@ export default function ListDetailsPage() {
     const currentCreator = listDetails.creator_username;
     const currentRecipient = listDetails.recipient_username;
     const actorUsername = currentUser; // User performing the action
-
+    
     try {
       setIsUpdating(true);
       
@@ -765,28 +742,28 @@ export default function ListDetailsPage() {
         console.error(`Notification recipient user "${notificationRecipientUsername}" not found for list status update.`);
       } else {
         // Only send if recipient found
-        let message = '';
-        switch (newStatus) {
-          case 'completed':
+      let message = '';
+      switch (newStatus) {
+        case 'completed':
             message = `قام ${actorUsername} بإكمال قائمة التسوق`;
-            break;
+          break;
           case 'in_progress': // Assuming 'opened' state means 'in_progress'
             message = `بدأ ${actorUsername} العمل على قائمة التسوق`;
-            break;
-          case 'new':
+          break;
+        case 'new':
              message = `قام ${actorUsername} بإعادة تعيين حالة قائمة التسوق`;
-             break;
-          default:
+          break;
+        default:
             message = `قام ${actorUsername} بتحديث حالة القائمة إلى ${newStatus}`;
-        }
-        
-        createNotification(
+      }
+      
+      createNotification(
           recipientData, // Pass the user object
-          message,
+        message,
           'LIST_STATUS', // Use a specific type
-          null,
-          listId
-        );
+        null,
+        listId
+      );
       }
       // --- نهاية إنشاء الإشعار ---
       

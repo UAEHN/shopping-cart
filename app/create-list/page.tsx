@@ -244,20 +244,25 @@ export default function CreateListPage() {
         return;
       }
       
+      // === DEBUGGING: Log the object being inserted ===
+      const listToInsert = {
+        creator_id: currentUserId, 
+        recipient_id: recipient.id,
+        creator_username: currentUserUsername, 
+        recipient_username: recipient.username, 
+      };
+      console.log('Attempting to insert list:', JSON.stringify(listToInsert, null, 2));
+      // =================================================
+      
       // إنشاء القائمة في جدول lists, including creator_id
       const { data: listData, error: listError } = await supabase
         .from('lists')
-        .insert({
-          creator_username: currentUserUsername, // Use fetched username
-          creator_id: currentUserId, // Add the creator_id
-          recipient_username: recipient.username,
-          status: 'new'
-        })
-        .select('id')
+        .insert(listToInsert) // Use the logged object
+        .select('id') 
         .single();
       
       if (listError) {
-        console.error('Error creating list:', listError);
+        console.error('Detailed Error creating list:', JSON.stringify(listError, null, 2));
         throw listError;
       }
       
@@ -281,20 +286,22 @@ export default function CreateListPage() {
         throw itemsError;
       }
       
-      // إنشاء إشعار لمستلم القائمة
-      await createNotification(
-        recipient,
-        `أرسل لك ${currentUserUsername} قائمة تسوق جديدة`,
-        'NEW_LIST',
-        null,
-        listData.id
-      );
+      // إرسال إشعار للمستلم (الإشعار الداخلي) - تم التعليق، يتم التعامل معه عبر Trigger/Push
+      // await createNotification( 
+      //   recipient, 
+      //   `أرسل لك ${currentUserUsername} قائمة تسوق جديدة`,
+      //   'NEW_LIST',
+      //   null, 
+      //   listData.id 
+      // );
       
-      toast.success('تم إرسال القائمة بنجاح', 1500);
+      toast.success('تم إرسال القائمة بنجاح!', 1500);
       
+      // الانتقال إلى صفحة القوائم بعد الإرسال (تأخير بسيط للسماح برؤية الـ toast)
       setTimeout(() => {
         router.push('/lists?tab=sent');
       }, 1500);
+
     } catch (error) {
       console.error('Error sending list:', error);
       toast.error('حدث خطأ أثناء إرسال القائمة', 2000);
