@@ -85,24 +85,24 @@ export default function SelectRecipientDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-white dark:bg-gray-850 border border-gray-200 dark:border-gray-700 rounded-xl p-0 w-[90vw] max-w-md mx-auto shadow-xl animate__fadeIn overflow-hidden">
+      <DialogContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-0 w-[90vw] max-w-md mx-auto shadow-xl animate__fadeIn overflow-hidden">
         <DialogHeader className="bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 p-6 text-white">
           <div className="flex flex-col items-center">
-            <div className="bg-white dark:bg-gray-800 rounded-full p-3 mb-4 shadow-md">
-              <UsersRound className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+            <div className="bg-white dark:bg-gray-700 rounded-full p-3 mb-4 shadow-md">
+              <UsersRound className="h-6 w-6 text-blue-600 dark:text-blue-300" />
             </div>
             <DialogTitle className="text-xl font-bold text-center">اختر المستلم</DialogTitle>
-            <DialogDescription className="text-center text-blue-100 dark:text-blue-200 mt-2">
+            <DialogDescription className="text-center text-blue-100 dark:text-blue-100 mt-2">
               اختر شخص لإرسال قائمة التسوق إليه
             </DialogDescription>
-            <div className="w-12 h-1 bg-blue-300 dark:bg-blue-400 rounded-full mt-3 opacity-70"></div>
+            <div className="w-12 h-1 bg-blue-300 dark:bg-blue-300 rounded-full mt-3 opacity-70"></div>
           </div>
         </DialogHeader>
 
-        <div className="p-6">
+        <div className="p-6 dark:bg-gray-800">
           {isLoading ? (
             <div className="flex justify-center py-10">
-              <div className="animate-pulse">جاري التحميل...</div>
+              <div className="animate-pulse dark:text-white">جاري التحميل...</div>
             </div>
           ) : contacts.length > 0 ? (
             <div className="space-y-2 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
@@ -111,53 +111,53 @@ export default function SelectRecipientDialog({
                   key={contact.id}
                   className={`p-3 rounded-lg transition-all duration-200 flex items-center cursor-pointer ${
                     selectedContact === contact.contact_username
-                      ? 'bg-blue-50 dark:bg-blue-900/30 border-2 border-blue-500 dark:border-blue-700'
-                      : 'hover:bg-gray-50 dark:hover:bg-gray-800 border-2 border-transparent'
+                      ? 'bg-blue-50 dark:bg-blue-900 border-2 border-blue-500 dark:border-blue-400'
+                      : 'hover:bg-gray-50 dark:hover:bg-gray-700 border-2 border-transparent'
                   }`}
                   onClick={() => setSelectedContact(contact.contact_username)}
                   style={{ animationDelay: `${index * 30}ms` }}
                 >
                   <div className={`p-2 rounded-full ${
                     selectedContact === contact.contact_username
-                      ? 'bg-blue-100 dark:bg-blue-800' 
-                      : 'bg-gray-100 dark:bg-gray-700'
+                      ? 'bg-blue-100 dark:bg-blue-700' 
+                      : 'bg-gray-100 dark:bg-gray-600'
                   }`}>
                     <UserRound className={`h-5 w-5 ${
                       selectedContact === contact.contact_username
-                        ? 'text-blue-600 dark:text-blue-400'
-                        : 'text-gray-600 dark:text-gray-400'
+                        ? 'text-blue-600 dark:text-blue-300'
+                        : 'text-gray-600 dark:text-gray-300'
                     }`} />
                   </div>
                   <div className="mr-3">
-                    <p className="font-medium">{contact.contact_username}</p>
+                    <p className="font-medium text-gray-800 dark:text-gray-100">{contact.contact_username}</p>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
             <div className="text-center p-8">
-              <div className="bg-gray-100 dark:bg-gray-800 p-6 rounded-full mx-auto w-16 h-16 flex items-center justify-center mb-4">
-                <UsersRound className="h-8 w-8 text-gray-400" />
+              <div className="bg-gray-100 dark:bg-gray-700 p-6 rounded-full mx-auto w-16 h-16 flex items-center justify-center mb-4">
+                <UsersRound className="h-8 w-8 text-gray-400 dark:text-gray-300" />
               </div>
-              <p className="text-gray-500 dark:text-gray-400">
+              <p className="text-gray-500 dark:text-gray-300">
                 لا توجد جهات اتصال مضافة
               </p>
-              <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">
+              <p className="text-gray-400 dark:text-gray-400 text-sm mt-2">
                 أضف جهات اتصال من صفحة الأشخاص أولاً
               </p>
             </div>
           )}
 
-          <DialogFooter className="flex-row justify-center gap-4 mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
+          <DialogFooter className="flex-row justify-center gap-4 mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
             <Button 
               variant="outline" 
-              className="px-6 rounded-lg transition-all duration-200"
+              className="px-6 rounded-lg transition-all duration-200 dark:text-white dark:bg-gray-700 dark:hover:bg-gray-600 dark:border-gray-600"
               onClick={onClose}
             >
               إلغاء
             </Button>
             <Button 
-              className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 px-6 rounded-lg transition-all duration-200 shadow-sm hover:shadow flex items-center gap-2"
+              className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white px-6 rounded-lg transition-all duration-200 shadow-sm hover:shadow flex items-center gap-2"
               onClick={handleSelectRecipient}
               disabled={!selectedContact}
             >
