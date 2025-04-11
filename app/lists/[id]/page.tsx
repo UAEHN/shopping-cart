@@ -7,10 +7,13 @@ import { toast, clearAllToasts } from '@/components/ui/toast';
 import Header from '@/components/layout/Header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart, Clock, CheckCircle, Package, ArrowLeft, Trash2, RefreshCw, Plus, AlertCircle } from 'lucide-react';
+import { ShoppingCart, Clock, CheckCircle, Package, ArrowLeft, Trash2, RefreshCw, Plus, AlertCircle, MessageSquare, Send } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { createNotification } from '@/utils/notifications';
+import { useListMessagesRealtime } from '@/hooks/useRealtime';
+import React from 'react';
+import { cn } from '@/lib/utils';
 
 
 interface ListItem {
@@ -298,67 +301,91 @@ export default function ListDetailsPage() {
   }, [listId, router, currentUser, loadListDetails]); // Added dependencies
   
   // تبديل حالة الشراء للعنصر
-  const toggleItemPurchase = async (productId: string) => {
-    if (isUpdating || !listDetails) return;
+  const toggleItemPurchase = async (itemId: string, purchased: boolean) => {
+    if (!listDetails || !currentUser) return;
     
-    setIsUpdating(true);
+    const itemToUpdate = listDetails.items.find(item => item.id === itemId);
+    if (!itemToUpdate) return;
+    
+    const actorUsername = currentUser;
+
+    // Capture the state *before* the toggle to calculate the new list status later
+    const itemsBeforeToggle = [...listDetails.items]; 
     
     try {
-      // العثور على العنصر المستهدف
-      const targetItem = listDetails.items.find(item => item.id === productId);
-      if (!targetItem) {
-        throw new Error('العنصر غير موجود');
-      }
-      
-      // تحديث الحالة المحلية فوراً لتجربة مستخدم سريعة (استجابة فورية)
-      const newPurchasedState = !targetItem.purchased;
-      const newPurchasedAt = newPurchasedState ? new Date().toISOString() : null;
-      
-      // تحديث الحالة المحلية للعنصر أولاً
-      setListDetails(prev => {
-        if (!prev) return prev;
-        
-        const newItems = prev.items.map(item => {
-          if (item.id === productId) {
-            return {
-              ...item,
-              purchased: newPurchasedState,
-              purchased_at: newPurchasedAt
-            };
-          }
-          return item;
-        });
-        
-        return { 
-          ...prev, 
-          items: newItems
-        };
-      });
-      
-      // إرسال التحديث إلى قاعدة البيانات
-      const { error } = await supabase
+      setIsUpdating(true);
+
+      // Get current user ID for purchased_by
+      const { data: { user } } = await supabase.auth.getUser();
+      const currentUserId = user?.id; // It should exist if user is on this page
+
+      // تحديث العنصر في قاعدة البيانات
+      const { data: updatedItemData, error: itemUpdateError } = await supabase
         .from('items')
         .update({
-          purchased: newPurchasedState,
-          purchased_at: newPurchasedAt
+          purchased: purchased,
+          purchased_at: purchased ? new Date().toISOString() : null,
+          // إضافة معرف المستخدم الذي قام بالشطب، أو null إذا تم إلغاء الشطب
+          purchased_by: purchased ? currentUserId : null 
         })
-        .eq('id', productId);
-      
-      if (error) {
-        // تبسيط معالجة الخطأ
-        console.error('خطأ في تحديث حالة العنصر:', error.message);
-        throw new Error(error.message || 'خطأ في تحديث حالة العنصر');
+        .eq('id', itemId)
+        .select() // Get the updated item back
+        .single();
+
+      if (itemUpdateError) {
+        console.error('Error updating item:', itemUpdateError);
+        toast.error(`حدث خطأ أثناء تحديث العنصر: ${itemUpdateError.message || 'خطأ غير معروف'}`, 2000);
+        setIsUpdating(false);
+        return;
       }
       
-      // لا نقوم بإظهار إشعار هنا لأن الإشعار سيتم إظهاره عند استلام تحديث الـ realtime
-    } catch (error) {
-      // معالجة الخطأ بشكل مبسط
-      const errorMsg = error instanceof Error ? error.message : 'خطأ غير معروف';
-      console.error('خطأ في تحديث حالة العنصر:', errorMsg);
-      toast.error('حدث خطأ أثناء تحديث حالة العنصر', 2000);
+      // 2. Update local UI state for the item immediately
+      const updatedItemsLocally = itemsBeforeToggle.map(item => 
+          item.id === itemId 
+            ? { ...item, purchased, purchased_at: purchased ? new Date().toISOString() : null } 
+            : item
+      );
+      setListDetails(prev => prev ? { ...prev, items: updatedItemsLocally } : null);
+      toast.success(purchased ? 'تم تحديث حالة العنصر إلى "تم شراؤه"' : 'تم تحديث حالة العنصر إلى "لم يتم شراؤه"');
       
-      // استرجاع القائمة في حالة الخطأ
-      loadListDetails();
+      // --- 4. Calculate new list status and update if changed --- 
+      const currentListStatus = listDetails.status;
+      let newListStatus = currentListStatus;
+      if (updatedItemsLocally.length > 0) {
+          const allPurchased = updatedItemsLocally.every(item => item.purchased);
+          const anyPurchased = updatedItemsLocally.some(item => item.purchased);
+          if (allPurchased) newListStatus = 'completed';
+          else if (anyPurchased) newListStatus = 'opened'; // Or 'in_progress'
+          else newListStatus = 'new';
+      } else {
+          newListStatus = 'new'; // If list becomes empty
+      }
+
+      if (newListStatus !== currentListStatus) {
+        console.log(`List status changed from ${currentListStatus} to ${newListStatus}. Updating DB.`);
+        
+        // 4a. Update list status in DB
+        const { error: listStatusUpdateError } = await supabase
+          .from('lists')
+          .update({ status: newListStatus, updated_at: new Date().toISOString() })
+          .eq('id', listId);
+
+        if (listStatusUpdateError) {
+          console.error('Error updating list status in DB:', listStatusUpdateError);
+          // Don't return here - we still want to update the UI and finish the toggle function
+          toast.error(`حدث خطأ أثناء تحديث حالة القائمة: ${listStatusUpdateError.message}`, 1500);
+        } else {
+           // Update local state for status as well (redundant if realtime works, but safe)
+           setListDetails(prev => prev ? { ...prev, status: newListStatus } : null);
+        }
+      }
+      // --- End List Status Update Logic ---
+
+    } catch (error) {
+      console.error('Error in toggleItemPurchase:', error);
+      const errorMessage = error instanceof Error ? error.message : 'حدث خطأ غير معروف';
+      toast.error(`حدث خطأ أثناء تحديث العنصر أو حالة القائمة: ${errorMessage}`);
+      // Consider reverting local state update on error if needed
     } finally {
       setIsUpdating(false);
     }
@@ -605,93 +632,6 @@ export default function ListDetailsPage() {
     ? Math.round((listDetails.items.filter(item => item.purchased).length / listDetails.items.length) * 100)
     : 0;
 
-  // تحديث حالة الشراء للعنصر
-  const toggleItemPurchased = async (itemId: string, purchased: boolean) => {
-    if (!listDetails || !currentUser) return;
-    
-    const itemToUpdate = listDetails.items.find(item => item.id === itemId);
-    if (!itemToUpdate) return;
-    
-    const actorUsername = currentUser;
-
-    // Capture the state *before* the toggle to calculate the new list status later
-    const itemsBeforeToggle = [...listDetails.items]; 
-    
-    try {
-      setIsUpdating(true);
-
-      // Get current user ID for purchased_by
-      const { data: { user } } = await supabase.auth.getUser();
-      const currentUserId = user?.id; // It should exist if user is on this page
-
-      // تحديث العنصر في قاعدة البيانات
-      const { data: updatedItemData, error: itemUpdateError } = await supabase
-        .from('items')
-        .update({
-          purchased: purchased,
-          purchased_at: purchased ? new Date().toISOString() : null,
-          // إضافة معرف المستخدم الذي قام بالشطب، أو null إذا تم إلغاء الشطب
-          purchased_by: purchased ? currentUserId : null 
-        })
-        .eq('id', itemId)
-        .select() // Get the updated item back
-        .single();
-
-      if (itemUpdateError) {
-        console.error('Error updating item:', itemUpdateError);
-        throw itemUpdateError;
-      }
-      
-      // 2. Update local UI state for the item immediately
-      const updatedItemsLocally = itemsBeforeToggle.map(item => 
-          item.id === itemId 
-            ? { ...item, purchased, purchased_at: purchased ? new Date().toISOString() : null } 
-            : item
-      );
-      setListDetails(prev => prev ? { ...prev, items: updatedItemsLocally } : null);
-      toast.success(purchased ? 'تم تحديث حالة العنصر إلى "تم شراؤه"' : 'تم تحديث حالة العنصر إلى "لم يتم شراؤه"');
-      
-      // --- 4. Calculate new list status and update if changed --- 
-      const currentListStatus = listDetails.status;
-      let newListStatus = currentListStatus;
-      if (updatedItemsLocally.length > 0) {
-          const allPurchased = updatedItemsLocally.every(item => item.purchased);
-          const anyPurchased = updatedItemsLocally.some(item => item.purchased);
-          if (allPurchased) newListStatus = 'completed';
-          else if (anyPurchased) newListStatus = 'opened'; // Or 'in_progress'
-          else newListStatus = 'new';
-      } else {
-          newListStatus = 'new'; // If list becomes empty
-      }
-
-      if (newListStatus !== currentListStatus) {
-        console.log(`List status changed from ${currentListStatus} to ${newListStatus}. Updating DB.`);
-        
-        // 4a. Update list status in DB
-        const { error: listStatusUpdateError } = await supabase
-          .from('lists')
-          .update({ status: newListStatus, updated_at: new Date().toISOString() })
-          .eq('id', listId);
-
-        if (listStatusUpdateError) {
-          console.error('Error updating list status in DB:', listStatusUpdateError);
-          // Potentially show a toast error, but don't block further execution
-        } else {
-           // Update local state for status as well (redundant if realtime works, but safe)
-           setListDetails(prev => prev ? { ...prev, status: newListStatus } : null);
-        }
-      }
-      // --- End List Status Update Logic ---
-
-    } catch (error) {
-      console.error('Error in toggleItemPurchased:', error);
-      toast.error('حدث خطأ أثناء تحديث العنصر أو حالة القائمة');
-      // Consider reverting local state update on error if needed
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
   // تحديث حالة القائمة
   const updateListStatus = async (newStatus: string) => {
     // Ensure listDetails and current user are available
@@ -725,7 +665,7 @@ export default function ListDetailsPage() {
       
       // --- إنشاء إشعار لمستلم أو منشئ القائمة --- 
       // Determine recipient based on captured current list details
-      const notificationRecipientUsername = actorUsername === currentCreator 
+      const recipientUsername = actorUsername === currentCreator 
         ? currentRecipient 
         : currentCreator;
       
@@ -733,13 +673,13 @@ export default function ListDetailsPage() {
       const { data: recipientData, error: userError } = await supabase
         .from('users') 
         .select('id, username')
-        .eq('username', notificationRecipientUsername)
+        .eq('username', recipientUsername)
         .maybeSingle();
 
       if (userError) {
         console.error('Error finding notification recipient user for list status update:', userError);
       } else if (!recipientData) {
-        console.error(`Notification recipient user "${notificationRecipientUsername}" not found for list status update.`);
+        console.error(`Notification recipient user "${recipientUsername}" not found for list status update.`);
       } else {
         // Only send if recipient found
       let message = '';
@@ -777,8 +717,7 @@ export default function ListDetailsPage() {
   };
   
   return (
-    <>
-      <div className="p-4 pt-0 pb-20">
+    <div className="container max-w-3xl mx-auto px-4 pb-20">
         <Header 
           title={isLoading ? 'جاري التحميل...' : `قائمة ${listDetails?.creator_username === currentUser ? 'مرسلة' : 'مستلمة'}`} 
           showBackButton
@@ -810,6 +749,7 @@ export default function ListDetailsPage() {
           } 
         />
         
+      <div className="p-4 pt-0 pb-20">
         {/* تأكيد الحذف */}
         {showDeleteConfirm && (
           <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
@@ -934,7 +874,7 @@ export default function ListDetailsPage() {
                         <div className="flex justify-between items-center p-3">
                           <div className="flex items-center gap-3">
                             <Button
-                              onClick={() => toggleItemPurchased(item.id, !item.purchased)}
+                              onClick={() => toggleItemPurchase(item.id, !item.purchased)}
                               disabled={isUpdating || (!isRecipient)}
                               variant={item.purchased ? "default" : "outline"}
                               size="sm"
@@ -992,6 +932,216 @@ export default function ListDetailsPage() {
           </Card>
         </div>
       </div>
-    </>
+
+      {/* --- إضافة المكون الجديد هنا --- */}
+      {listDetails && <MessageSection listId={listId} currentUser={currentUser} />}
+
+    </div>
+  );
+}
+
+// --- تعريف المكون الجديد --- 
+function MessageSection({ listId, currentUser }: { listId: string; currentUser: string }) {
+  const [newMessage, setNewMessage] = useState('');
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const { messages, isLoading: isLoadingMessages } = useListMessagesRealtime(listId);
+
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
+  const messagesContainerRef = React.useRef<HTMLDivElement>(null);
+  const isInitialLoad = React.useRef(true); // تتبع التحميل الأولي
+
+  // التمرير إلى الأسفل
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  };
+
+  // التمرير عند تغير الرسائل (وليس عند التحميل الأولي)
+  React.useEffect(() => {
+    // إذا لم يكن التحميل الأولي قد انتهى بعد، أو كانت الرسائل لا تزال قيد التحميل، لا تفعل شيئًا
+    if (isInitialLoad.current || isLoadingMessages) {
+      // إذا انتهى التحميل، ضع علامة على أن التحميل الأولي قد اكتمل
+      if (!isLoadingMessages) {
+        isInitialLoad.current = false;
+      }
+      return; // لا تمرر في التحميل الأول
+    }
+
+    // مرر فقط إذا تغير عدد الرسائل بعد التحميل الأولي
+    const timerId = setTimeout(() => scrollToBottom('smooth'), 100);
+    return () => clearTimeout(timerId);
+  }, [messages.length, isLoadingMessages]); // الاعتماد يبقى كما هو، لكن المنطق الداخلي تغير
+
+  // --- حذف التركيز الأولي التلقائي --- 
+  // React.useEffect(() => {
+  //   inputRef.current?.focus();
+  // }, []);
+
+  // إرسال الرسالة
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const messageText = newMessage.trim();
+    if (!messageText || isSendingMessage) return;
+
+    setNewMessage(''); // مسح الحقل فوراً
+    setIsSendingMessage(true);
+    inputRef.current?.focus(); // إعادة التركيز
+
+    try {
+      const { data: listDetails } = await supabase
+        .from('lists')
+        .select('creator_username, recipient_username')
+        .eq('id', listId)
+        .single();
+
+      if (!listDetails) throw new Error('List details not found for notification.');
+
+      const recipientUsername = currentUser === listDetails.creator_username
+        ? listDetails.recipient_username
+        : listDetails.creator_username;
+
+      // إضافة الرسالة إلى قاعدة البيانات
+      const { error: insertError } = await supabase
+        .from('messages')
+        .insert({ list_id: listId, sender_username: currentUser, text: messageText });
+
+      if (insertError) throw insertError;
+
+      // تشغيل منطق الإشعارات (لا ننتظر النتيجة)
+      supabase
+        .from('users')
+        .select('id, push_token')
+        .eq('username', recipientUsername)
+        .single()
+        .then(({ data: recipientData, error: recipientError }) => {
+          if (recipientError || !recipientData) {
+            console.error('Error fetching recipient for notification:', recipientError);
+            return;
+          }
+          // 1. إنشاء الإشعار في قاعدة البيانات (للإشعارات داخل التطبيق)
+          createNotification(
+            { id: recipientData.id, username: recipientUsername },
+            `رسالة جديدة من ${currentUser}: ${messageText.substring(0, 20)}...`,
+            'NEW_MESSAGE',
+            null,
+            listId
+          ).catch(err => console.error('DB Notification error:', err));
+
+          // 2. إزالة الاستدعاء الصريح لوظيفة Push Notification
+          // سيتم تشغيلها تلقائياً بواسطة Trigger على جدول notifications (إذا كان مفعلاً)
+          /* 
+          if (recipientData.push_token) {
+            supabase.functions.invoke('send-push-notification', {
+              body: {
+                recipientUserId: recipientData.id,
+                title: `رسالة جديدة من ${currentUser}`,
+                body: messageText.substring(0, 30) + '...',
+                data: { type: 'NEW_MESSAGE', listId, senderId: currentUser }
+              }
+            }).catch(err => console.error('Push Notification error (ignored):', err));
+          }
+          */
+        });
+
+    } catch (error: any) {
+      console.error('Error sending message:', error);
+      toast.error('حدث خطأ أثناء إرسال الرسالة');
+      setNewMessage(messageText); // إعادة النص في حالة الخطأ
+    } finally {
+      setIsSendingMessage(false);
+      // لا حاجة لإعادة التركيز هنا، تم بالفعل
+    }
+  };
+
+  return (
+    <Card className="mt-4 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 overflow-hidden">
+      <CardContent className="p-4">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">الرسائل</h3>
+          {/* يمكن إضافة زر إخفاء هنا إذا أردت لاحقاً */}
+        </div>
+
+        <div
+          ref={messagesContainerRef}
+          className="rounded-md p-2 mb-4 max-h-[300px] overflow-y-auto scroll-smooth"
+        >
+          {isLoadingMessages ? (
+            <p className="text-center py-4 text-gray-500 dark:text-gray-400">جاري تحميل الرسائل...</p>
+          ) : messages.length === 0 ? (
+            <p className="text-center py-4 text-gray-500 dark:text-gray-400">لا توجد رسائل</p>
+          ) : (
+            <div className="space-y-3">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex flex-col ${
+                    message.sender_username === currentUser
+                      ? 'ml-auto items-end'
+                      : 'mr-auto items-start'
+                  }`}
+                >
+                  <div
+                    className={`p-3 rounded-lg max-w-[75%] ${
+                      message.sender_username === currentUser
+                        ? 'bg-blue-500 dark:bg-blue-600 text-white rounded-br-none'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-none'
+                    }`}
+                  >
+                    <div className="text-xs opacity-80 mb-1">
+                      {message.sender_username === currentUser ? 'أنت' : message.sender_username}
+                    </div>
+                    <p className="text-sm break-words">{message.text}</p>
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 px-1 ${message.sender_username === currentUser ? 'text-right' : 'text-left'}">
+                    {new Date(message.created_at).toLocaleString('ar-SA', {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </div>
+                </div>
+              ))}
+              {/* عنصر غير مرئي للتمرير إليه */}
+              <div ref={messagesEndRef} style={{ height: '1px' }}></div>
+            </div>
+          )}
+        </div>
+
+        <form onSubmit={handleSendMessage} className="flex items-center space-x-2 rtl:space-x-reverse border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+          <input
+            ref={inputRef}
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="اكتب رسالتك هنا..."
+            disabled={isSendingMessage}
+            className={cn(
+               "flex-1 file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input flex h-10 w-full min-w-0 rounded-md border bg-transparent px-3 py-2 text-base shadow-sm transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+               "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+               "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+               "dark:text-gray-100 dark:placeholder:text-gray-500 dark:border-gray-700",
+               "dark:focus-visible:border-blue-600 dark:focus-visible:ring-blue-500/40"
+            )}
+            autoComplete="off"
+            type="text"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage(e);
+              }
+            }}
+          />
+          <Button
+            type="submit"
+            disabled={isSendingMessage || !newMessage.trim()}
+            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 rounded-md h-10 px-4"
+          >
+            {isSendingMessage ? (
+              <RefreshCw className="h-5 w-5 animate-spin" />
+            ) : (
+              <Send className="h-5 w-5" />
+            )}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 } 

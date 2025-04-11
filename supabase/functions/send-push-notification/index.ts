@@ -114,27 +114,53 @@ serve(async (req: Request) => {
     const pushToken = userData.push_token;
     console.log(`Found push token for user ${recipientUserId}: ${pushToken}`);
 
-    // 4. بناء رسالة FCM
-    const message: Message = {
+    // 4. بناء رسالة FCM (تحتوي فقط على بيانات data)
+    // يجب أن يتطابق هيكل البيانات مع ما يتوقعه Service Worker
+    const messagePayload = {
       token: pushToken,
-      notification: {
-        title: title,
-        body: body,
+      data: {
+        title: title, // تمرير العنوان عبر البيانات
+        body: body,   // تمرير النص عبر البيانات
+        icon: "/icons/icon-192x192.png", // تمرير الأيقونة (اختياري، يمكن للـ SW تحديدها أيضاً)
+        ...data // دمج أي بيانات إضافية موجودة مسبقاً (مثل listId)
       },
-      // إضافة بيانات إضافية لمعالجتها في الواجهة الأمامية عند النقر
-      data: data, 
-      // إعدادات إضافية اختيارية (مثل الأولوية، وقت الانتهاء، إلخ)
-      // webpush: {
-      //   fcmOptions: {
-      //     link: data.clickAction || '/' // رابط لفتحه عند النقر
-      //   }
-      // }
+      // --- تمت إزالة الجزء notification من هنا --- 
+      // notification: {
+      //   title: title,
+      //   body: body,
+      // },
+       // يمكن إضافة إعدادات webpush إذا لزم الأمر للتحكم في سلوك العرض
+       webpush: {
+         headers: {
+           Urgency: 'high',
+         },
+         fcmOptions: {
+           // link: data.clickAction || '/' // الرابط عند النقر، سيتم التعامل معه في SW
+         },
+         // يمكن إزالة هذا إذا كان SW سيعرض الإشعار دائماً
+         // notification: { 
+         //   // يمكنك تحديد بعض الخصائص هنا، لكن SW سيقوم بالتجاوز غالباً
+         //   // title: title,
+         //   // body: body,
+         //   // icon: "/icons/icon-192x192.png"
+         // }
+       },
+       android: {
+         priority: 'high'
+       },
+       apns: {
+         headers: {
+           'apns-priority': '10'
+         }
+       }
     };
 
     // 5. إرسال الإشعار باستخدام Firebase Admin
     const messaging = getMessaging(firebaseAdminApp);
-    const response = await messaging.send(message);
-    console.log("Successfully sent message:", response);
+    // تأكد من أن النوع المرسل متوافق. قد نحتاج لتأكيد النوع إذا كان Message يتطلب notification
+    // إذا حدث خطأ في النوع، قد نحتاج لتعريف نوع مخصص أو استخدام as any بحذر
+    const response = await messaging.send(messagePayload as any); // استخدام as any مؤقتاً لتجاوز فحص النوع الصارم
+    console.log("Successfully sent DATA-ONLY message:", response);
 
     return new Response(JSON.stringify({ success: true, messageId: response }), {
       headers: { "Content-Type": "application/json" },

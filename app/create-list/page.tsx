@@ -263,11 +263,15 @@ export default function CreateListPage() {
       
       if (listError) {
         console.error('Detailed Error creating list:', JSON.stringify(listError, null, 2));
-        throw listError;
+        toast.error(`حدث خطأ أثناء إنشاء القائمة: ${listError.message || 'خطأ غير معروف'}`, 2000);
+        setIsSending(false);
+        return;
       }
       
       if (!listData || !listData.id) {
-        throw new Error('Failed to retrieve list ID');
+        toast.error('فشل في استرداد معرف القائمة', 2000);
+        setIsSending(false);
+        return;
       }
       
       // إضافة العناصر إلى جدول items
@@ -283,17 +287,13 @@ export default function CreateListPage() {
       
       if (itemsError) {
         console.error('Error adding items:', itemsError);
-        throw itemsError;
+        toast.error(`حدث خطأ أثناء إضافة العناصر: ${itemsError.message || 'خطأ غير معروف'}`, 2000);
+        setIsSending(false);
+        return;
       }
       
-      // إرسال إشعار للمستلم (الإشعار الداخلي) - تم التعليق، يتم التعامل معه عبر Trigger/Push
-      // await createNotification( 
-      //   recipient, 
-      //   `أرسل لك ${currentUserUsername} قائمة تسوق جديدة`,
-      //   'NEW_LIST',
-      //   null, 
-      //   listData.id 
-      // );
+      // Note: The notification is now handled by database triggers
+      // No need to call createNotification() directly
       
       toast.success('تم إرسال القائمة بنجاح!', 1500);
       
@@ -304,7 +304,8 @@ export default function CreateListPage() {
 
     } catch (error) {
       console.error('Error sending list:', error);
-      toast.error('حدث خطأ أثناء إرسال القائمة', 2000);
+      const errorMessage = error instanceof Error ? error.message : 'حدث خطأ غير معروف';
+      toast.error(`حدث خطأ أثناء إرسال القائمة: ${errorMessage}`, 2000);
       setIsSending(false);
     }
   };

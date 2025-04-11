@@ -31,15 +31,23 @@ try {
     // --- معالج استقبال الرسائل في الخلفية --- 
     messaging.onBackgroundMessage((payload) => {
         console.log(
-        "[firebase-messaging-sw.js] Received background message ",
-        payload
+        "[firebase-messaging-sw.js] Received background message (data-only likely): ",
+        payload // يجب أن يحتوي الآن على data فقط (payload.notification سيكون فارغاً)
         );
+
+        // --- قراءة البيانات من payload.data --- 
+        const notificationData = payload.data || {}; // احصل على كائن البيانات
+        const notificationTitle = notificationData.title || "إشعار جديد";
+        const notificationBody = notificationData.body || "لديك رسالة جديدة.";
+        const notificationIcon = notificationData.icon || "/icons/icon-192x192.png"; // استخدم الأيقونة من البيانات أو الافتراضية
+
         // تخصيص الإشعار هنا
-        const notificationTitle = payload.notification?.title || "إشعار جديد";
+        // const notificationTitle = payload.notification?.title || "إشعار جديد"; // <-- السطر القديم
         const notificationOptions = {
-            body: payload.notification?.body || "لديك رسالة جديدة.",
-            icon: "/icons/icon-192x192.png", // تأكد من وجود هذا المسار
-            data: payload.data // تمرير البيانات لحدث النقر
+            // body: payload.notification?.body || "لديك رسالة جديدة.", // <-- السطر القديم
+            body: notificationBody,
+            icon: notificationIcon, // استخدام الأيقونة المحددة
+            data: notificationData // تمرير *كامل* البيانات لحدث النقر
         };
 
         // عرض الإشعار

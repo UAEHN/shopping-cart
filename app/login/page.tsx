@@ -16,6 +16,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   
   // Form fields
   const [email, setEmail] = useState('');
@@ -31,7 +32,7 @@ export default function LoginPage() {
     try {
       if (isLogin) {
         // تسجيل الدخول
-        const { data, error: signInError } = await signIn(email, password);
+        const { data, error: signInError } = await signIn(email, password, rememberMe);
         
         if (signInError) {
           toast.error('فشل تسجيل الدخول: ' + signInError.message);
@@ -159,6 +160,21 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
+            
+            {isLogin && (
+              <div className="flex items-center">
+                <input
+                  id="remember-me"
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={() => setRememberMe(!rememberMe)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ml-2"
+                />
+                <label htmlFor="remember-me" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                  تذكرني
+                </label>
+              </div>
+            )}
             
             {!isLogin && (
               <>
