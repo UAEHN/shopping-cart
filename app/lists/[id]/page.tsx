@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/services/supabase';
@@ -7,13 +7,14 @@ import { toast, clearAllToasts } from '@/components/ui/toast';
 import Header from '@/components/layout/Header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart, Clock, CheckCircle, Package, ArrowLeft, Trash2, RefreshCw, Plus, AlertCircle, MessageSquare, Send } from 'lucide-react';
+import { ShoppingCart, Clock, CheckCircle, Package, ArrowLeft, Trash2, RefreshCw, Plus, AlertCircle, MessageSquare, Send, X, Image, Camera } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { createNotification } from '@/utils/notifications';
 import { useListMessagesRealtime } from '@/hooks/useRealtime';
 import React from 'react';
 import { cn } from '@/lib/utils';
+import imageCompression from 'browser-image-compression';
 
 
 interface ListItem {
@@ -33,6 +34,164 @@ interface ListDetails {
   created_at: string;
   updated_at: string;
   items: ListItem[];
+}
+
+// تحسين عرض الصورة في النافذة المنبثقة
+function ImagePreviewModal({ 
+  imageUrl, 
+  isOpen, 
+  onClose 
+}: { 
+  imageUrl: string; 
+  isOpen: boolean; 
+  onClose: () => void;
+}) {
+  // إضافة مرجع للنافذة المنبثقة للتعامل مع النقر خارجها
+  const modalRef = useRef<HTMLDivElement>(null);
+  // إضافة متغير حالة لتتبع نسبة التكبير/التصغير
+  const [scale, setScale] = useState(1);
+
+  // إغلاق النافذة المنبثقة عند الضغط على زر Escape
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    
+    if (isOpen) {
+      window.addEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden'; // منع التمرير في الخلفية
+    }
+    
+    return () => {
+      window.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = ''; // استعادة التمرير
+    };
+  }, [isOpen, onClose]);
+
+  // تحسين دالة إغلاق النافذة المنبثقة عند النقر خارج الصورة
+  const handleOutsideClick = (e: React.MouseEvent) => {
+    // إغلاق النافذة عند النقر على أي مكان خارج الصورة والأزرار
+    if (
+      e.target === e.currentTarget ||  // النقر على الخلفية السوداء
+      !(modalRef.current?.contains(e.target as Node))
+    ) {
+      onClose();
+    }
+  };
+
+  // دالة زيادة التكبير
+  const zoomIn = () => {
+    setScale(prev => Math.min(prev + 0.25, 3)); // الحد الأقصى 3x
+  };
+
+  // دالة تقليل التكبير
+  const zoomOut = () => {
+    setScale(prev => Math.max(prev - 0.25, 0.5)); // الحد الأدنى 0.5x
+  };
+
+  // دالة إعادة ضبط حجم الصورة
+  const resetZoom = () => {
+    setScale(1);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div 
+      className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-2 animate-in fade-in duration-300"
+      onClick={handleOutsideClick}
+    >
+      <div 
+        className="absolute top-2 right-2 flex gap-1 z-10"
+      >
+        {/* أزرار التكبير/التصغير */}
+        <Button
+          onClick={(e) => {
+            e.stopPropagation(); // منع انتشار الحدث للعناصر الأب
+            zoomIn();
+          }}
+          size="sm"
+          variant="outline"
+          className="bg-white/20 hover:bg-white/30 text-white border-0 rounded-full h-8 w-8 p-0"
+          title="تكبير"
+        >
+          <span className="text-xl font-bold">+</span>
+        </Button>
+        <Button
+          onClick={(e) => {
+            e.stopPropagation(); // منع انتشار الحدث للعناصر الأب
+            zoomOut();
+          }}
+          size="sm"
+          variant="outline"
+          className="bg-white/20 hover:bg-white/30 text-white border-0 rounded-full h-8 w-8 p-0"
+          title="تصغير"
+        >
+          <span className="text-xl font-bold">-</span>
+        </Button>
+        <Button
+          onClick={(e) => {
+            e.stopPropagation(); // منع انتشار الحدث للعناصر الأب
+            resetZoom();
+          }}
+          size="sm"
+          variant="outline"
+          className="bg-white/20 hover:bg-white/30 text-white border-0 rounded-full h-8 w-8 p-0"
+          title="إعادة ضبط"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+            <path d="M3 3v5h5"></path>
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+            <path d="M16 21h5v-5"></path>
+          </svg>
+        </Button>
+        <Button
+          onClick={(e) => {
+            e.stopPropagation(); // منع انتشار الحدث للعناصر الأب
+            onClose();
+          }}
+          size="sm"
+          variant="outline"
+          className="bg-white/20 hover:bg-white/30 text-white border-0 rounded-full h-8 w-8 p-0"
+          title="إغلاق"
+        >
+          <X className="h-5 w-5" />
+        </Button>
+      </div>
+      
+      {/* المعلومات أسفل الصورة */}
+      <div 
+        className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-black/50 px-3 py-1 rounded-full text-white text-sm z-10"
+        onClick={(e) => e.stopPropagation()} // منع انتشار الحدث للعناصر الأب
+      >
+        {Math.round(scale * 100)}%
+      </div>
+      
+      <div 
+        ref={modalRef}
+        className="relative flex items-center justify-center w-full h-full"
+      >
+        <div 
+          className="bg-transparent transition-all duration-300 ease-in-out max-w-[90%] max-h-[90%] overflow-hidden"
+          style={{ 
+            boxShadow: '0 0 20px rgba(0, 0, 0, 0.3)'
+          }}
+          onClick={(e) => e.stopPropagation()} // منع انتشار الحدث للعناصر الأب عند النقر على الصورة نفسها
+        >
+          <img 
+            src={imageUrl} 
+            alt="صورة معروضة" 
+            className="w-auto h-auto max-w-full max-h-[85vh] object-contain transition-transform duration-300 ease-in-out"
+            style={{ 
+              transform: `scale(${scale})`,
+              transformOrigin: 'center center'
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function ListDetailsPage() {
@@ -945,112 +1104,307 @@ function MessageSection({ listId, currentUser }: { listId: string; currentUser: 
   const [newMessage, setNewMessage] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const { messages, isLoading: isLoadingMessages } = useListMessagesRealtime(listId);
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [imageCaption, setImageCaption] = useState<string>('');
+  const [compressionProgress, setCompressionProgress] = useState<number>(0);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [uploadedCount, setUploadedCount] = useState<number>(0);
 
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const messagesContainerRef = React.useRef<HTMLDivElement>(null);
-  const isInitialLoad = React.useRef(true); // تتبع التحميل الأولي
+  const isInitialLoad = React.useRef(true);
 
-  // التمرير إلى الأسفل
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
     messagesEndRef.current?.scrollIntoView({ behavior });
   };
 
-  // التمرير عند تغير الرسائل (وليس عند التحميل الأولي)
   React.useEffect(() => {
-    // إذا لم يكن التحميل الأولي قد انتهى بعد، أو كانت الرسائل لا تزال قيد التحميل، لا تفعل شيئًا
     if (isInitialLoad.current || isLoadingMessages) {
-      // إذا انتهى التحميل، ضع علامة على أن التحميل الأولي قد اكتمل
       if (!isLoadingMessages) {
         isInitialLoad.current = false;
       }
-      return; // لا تمرر في التحميل الأول
+      return;
     }
 
-    // مرر فقط إذا تغير عدد الرسائل بعد التحميل الأولي
     const timerId = setTimeout(() => scrollToBottom('smooth'), 100);
     return () => clearTimeout(timerId);
-  }, [messages.length, isLoadingMessages]); // الاعتماد يبقى كما هو، لكن المنطق الداخلي تغير
+  }, [messages.length, isLoadingMessages]);
 
-  // --- حذف التركيز الأولي التلقائي --- 
-  // React.useEffect(() => {
-  //   inputRef.current?.focus();
-  // }, []);
+  const compressImage = async (file: File): Promise<File> => {
+    const options = {
+      maxSizeMB: 1,
+      maxWidthOrHeight: 1200,
+      useWebWorker: true,
+      onProgress: (progress: number) => {
+        setCompressionProgress(progress);
+      },
+      initialQuality: 0.7,
+      alwaysKeepResolution: false,
+    };
 
-  // إرسال الرسالة
+    try {
+      console.log(`Original image size: ${file.size / 1024 / 1024} MB`);
+
+      const compressedFile = await imageCompression(file, options);
+      
+      console.log(`Compressed image size: ${compressedFile.size / 1024 / 1024} MB`);
+      console.log(`Compression ratio: ${(file.size / compressedFile.size).toFixed(2)}x`);
+      
+      const compressedFileWithExtension = new File(
+        [compressedFile], 
+        file.name, 
+        { type: compressedFile.type }
+      );
+      
+      return compressedFileWithExtension;
+    } catch (error) {
+      console.error('Error compressing image:', error);
+      return file;
+    } finally {
+      setCompressionProgress(0);
+    }
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const fileArray = Array.from(files);
+    
+    const totalImages = selectedImages.length + fileArray.length;
+    if (totalImages > 5) {
+      toast.error('يمكنك إرسال 5 صور كحد أقصى في المرة الواحدة');
+      fileArray.splice(0, 5 - selectedImages.length);
+    }
+
+    setSelectedImages(prevImages => [...prevImages, ...fileArray]);
+
+    fileArray.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreviewUrls(prev => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleCancelSingleImage = (index: number) => {
+    setSelectedImages(prevImages => {
+      const newImages = [...prevImages];
+      newImages.splice(index, 1);
+      return newImages;
+    });
+
+    setImagePreviewUrls(prevPreviews => {
+      const newPreviews = [...prevPreviews];
+      newPreviews.splice(index, 1);
+      return newPreviews;
+    });
+  };
+
+  const handleCancelAllImages = () => {
+    setSelectedImages([]);
+    setImagePreviewUrls([]);
+    setImageCaption('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleCapturePhoto = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.accept = 'image/*';
+      fileInputRef.current.capture = 'environment';
+      fileInputRef.current.multiple = true;
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleOpenGallery = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.accept = 'image/*';
+      fileInputRef.current.removeAttribute('capture');
+      fileInputRef.current.multiple = true;
+      fileInputRef.current.click();
+    }
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     const messageText = newMessage.trim();
-    if (!messageText || isSendingMessage) return;
+    const captionText = imageCaption.trim();
+    
+    if ((!messageText && selectedImages.length === 0) || isSendingMessage || isUploadingImage) return;
 
-    setNewMessage(''); // مسح الحقل فوراً
+    setNewMessage('');
     setIsSendingMessage(true);
-    inputRef.current?.focus(); // إعادة التركيز
+    inputRef.current?.focus();
 
     try {
+      const { data: authUserData } = await supabase.auth.getUser();
+      
       const { data: listDetails } = await supabase
         .from('lists')
-        .select('creator_username, recipient_username')
+        .select('creator_username, recipient_username, creator_id, recipient_id')
         .eq('id', listId)
         .single();
 
       if (!listDetails) throw new Error('List details not found for notification.');
-
+      
       const recipientUsername = currentUser === listDetails.creator_username
         ? listDetails.recipient_username
         : listDetails.creator_username;
 
-      // إضافة الرسالة إلى قاعدة البيانات
+      const imageUrls: string[] = [];
+
+      if (selectedImages.length > 0) {
+        setIsUploadingImage(true);
+        setUploadedCount(0);
+        
+        try {
+          const compressPromises = selectedImages.map(image => compressImage(image));
+          
+          toast.info('جاري ضغط الصور...', 3000);
+          const compressedImages = await Promise.all(compressPromises);
+          
+          const totalImages = compressedImages.length;
+          
+          const uploadPromises = compressedImages.map(async (compressedImage, index) => {
+            const fileExt = compressedImage.name.split('.').pop();
+            const fileName = `${listId}/${Date.now()}_${index}.${fileExt}`;
+            
+            const { data: fileData, error: uploadError } = await supabase
+              .storage
+              .from('message_images')
+              .upload(fileName, compressedImage, {
+                cacheControl: '3600',
+                upsert: false
+              });
+              
+            if (uploadError) {
+              console.error(`Error uploading image ${index + 1}:`, uploadError);
+              throw uploadError;
+            }
+            
+            if (fileData) {
+              const { data: urlData } = await supabase
+                .storage
+                .from('message_images')
+                .getPublicUrl(fileName);
+                
+              setUploadedCount(prev => prev + 1);
+              setUploadProgress(((index + 1) / totalImages) * 100);
+              
+              return urlData?.publicUrl || null;
+            }
+            
+            return null;
+          });
+          
+          const urls = await Promise.all(uploadPromises);
+          
+          imageUrls.push(...urls.filter(url => url !== null) as string[]);
+          
+        } catch (imageError) {
+          console.error('Error in image upload process:', imageError);
+          toast.error('حدث خطأ أثناء رفع الصور');
+          setIsUploadingImage(false);
+          setIsSendingMessage(false);
+        return;
+      }
+      
+        setIsUploadingImage(false);
+        setSelectedImages([]);
+        setImagePreviewUrls([]);
+        setImageCaption('');
+        setUploadProgress(0);
+        setUploadedCount(0);
+        
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+
+      if (imageUrls.length > 0) {
+        try {
+          const firstImageText = messageText || (captionText ? captionText : 'صورة');
+          
+          const { error: firstInsertError } = await supabase
+            .from('messages')
+            .insert({ 
+              list_id: listId, 
+              sender_username: currentUser, 
+              text: firstImageText,
+              image_url: imageUrls[0]
+            });
+  
+          if (firstInsertError) {
+            console.error('Database insert error:', firstInsertError);
+            throw firstInsertError;
+          }
+          
+          if (imageUrls.length > 1) {
+            const remainingUploads = imageUrls.slice(1).map(url => {
+              return supabase
+                .from('messages')
+                .insert({ 
+                  list_id: listId, 
+                  sender_username: currentUser, 
+                  text: 'صورة',
+                  image_url: url
+                });
+            });
+            
+            await Promise.all(remainingUploads);
+          }
+          
+          console.log('All messages inserted successfully');
+        } catch (dbError) {
+          console.error('Database operation error:', dbError);
+          throw dbError;
+        }
+      } else if (messageText) {
+        try {
       const { error: insertError } = await supabase
         .from('messages')
-        .insert({ list_id: listId, sender_username: currentUser, text: messageText });
-
-      if (insertError) throw insertError;
-
-      // تشغيل منطق الإشعارات (لا ننتظر النتيجة)
-      supabase
-        .from('users')
-        .select('id, push_token')
-        .eq('username', recipientUsername)
-        .single()
-        .then(({ data: recipientData, error: recipientError }) => {
-          if (recipientError || !recipientData) {
-            console.error('Error fetching recipient for notification:', recipientError);
-            return;
+            .insert({ 
+              list_id: listId, 
+              sender_username: currentUser, 
+              text: messageText,
+              image_url: null
+            });
+  
+          if (insertError) {
+            console.error('Database insert error:', insertError);
+            throw insertError;
           }
-          // 1. إنشاء الإشعار في قاعدة البيانات (للإشعارات داخل التطبيق)
-          createNotification(
-            { id: recipientData.id, username: recipientUsername },
-            `رسالة جديدة من ${currentUser}: ${messageText.substring(0, 20)}...`,
-            'NEW_MESSAGE',
-            null,
-            listId
-          ).catch(err => console.error('DB Notification error:', err));
-
-          // 2. إزالة الاستدعاء الصريح لوظيفة Push Notification
-          // سيتم تشغيلها تلقائياً بواسطة Trigger على جدول notifications (إذا كان مفعلاً)
-          /* 
-          if (recipientData.push_token) {
-            supabase.functions.invoke('send-push-notification', {
-              body: {
-                recipientUserId: recipientData.id,
-                title: `رسالة جديدة من ${currentUser}`,
-                body: messageText.substring(0, 30) + '...',
-                data: { type: 'NEW_MESSAGE', listId, senderId: currentUser }
-              }
-            }).catch(err => console.error('Push Notification error (ignored):', err));
-          }
-          */
-        });
+        } catch (dbError) {
+          console.error('Database operation error:', dbError);
+          throw dbError;
+        }
+      }
 
     } catch (error: any) {
       console.error('Error sending message:', error);
       toast.error('حدث خطأ أثناء إرسال الرسالة');
-      setNewMessage(messageText); // إعادة النص في حالة الخطأ
+      setNewMessage(messageText);
     } finally {
       setIsSendingMessage(false);
-      // لا حاجة لإعادة التركيز هنا، تم بالفعل
+      setIsUploadingImage(false);
     }
+  };
+
+  const handleOpenImagePreview = (imageUrl: string) => {
+    setPreviewImage(imageUrl);
+  };
+
+  const handleCloseImagePreview = () => {
+    setPreviewImage(null);
   };
 
   return (
@@ -1058,7 +1412,6 @@ function MessageSection({ listId, currentUser }: { listId: string; currentUser: 
       <CardContent className="p-4">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold">الرسائل</h3>
-          {/* يمكن إضافة زر إخفاء هنا إذا أردت لاحقاً */}
         </div>
 
         <div
@@ -1090,7 +1443,17 @@ function MessageSection({ listId, currentUser }: { listId: string; currentUser: 
                     <div className="text-xs opacity-80 mb-1">
                       {message.sender_username === currentUser ? 'أنت' : message.sender_username}
                     </div>
-                    <p className="text-sm break-words">{message.text}</p>
+                    {message.image_url && (
+                      <div className="mb-2">
+                        <img 
+                          src={message.image_url} 
+                          alt="صورة مرفقة" 
+                          className="rounded max-w-full w-auto h-auto cursor-pointer hover:opacity-90 transition-opacity object-contain max-h-[200px]" 
+                          onClick={() => handleOpenImagePreview(message.image_url as string)}
+                        />
+                      </div>
+                    )}
+                    {message.text && <p className="text-sm break-words">{message.text}</p>}
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 px-1 ${message.sender_username === currentUser ? 'text-right' : 'text-left'}">
                     {new Date(message.created_at).toLocaleString('ar-SA', {
@@ -1100,19 +1463,120 @@ function MessageSection({ listId, currentUser }: { listId: string; currentUser: 
                   </div>
                 </div>
               ))}
-              {/* عنصر غير مرئي للتمرير إليه */}
               <div ref={messagesEndRef} style={{ height: '1px' }}></div>
             </div>
           )}
         </div>
 
-        <form onSubmit={handleSendMessage} className="flex items-center space-x-2 rtl:space-x-reverse border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+        {imagePreviewUrls.length > 0 && (
+          <div className="mb-4 bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col gap-3">
+              <div className="flex justify-between items-center">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">الصور المختارة ({imagePreviewUrls.length})</p>
+                <Button
+                  onClick={handleCancelAllImages}
+                  size="sm"
+                  variant="ghost"
+                  className="text-red-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/20 p-1 h-auto"
+                >
+                  إلغاء الكل
+                </Button>
+              </div>
+              
+              <div className="mb-2">
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">إضافة تعليق على الصور:</p>
+                <input 
+                  type="text"
+                  value={imageCaption}
+                  onChange={(e) => setImageCaption(e.target.value)}
+                  placeholder="اكتب تعليقًا للصور (اختياري)..."
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                />
+              </div>
+              
+              {(compressionProgress > 0 || uploadProgress > 0) && (
+                <div className="mt-1 mb-2">
+                  <div className="flex justify-between text-xs mb-1">
+                    {compressionProgress > 0 ? (
+                      <>
+                        <span>جاري ضغط الصور...</span>
+                        <span>{Math.round(compressionProgress)}%</span>
+                      </>
+                    ) : uploadProgress > 0 ? (
+                      <>
+                        <span>جاري رفع الصور...</span>
+                        <span>{uploadedCount}/{selectedImages.length} ({Math.round(uploadProgress)}%)</span>
+                      </>
+                    ) : null}
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                    <div 
+                      className="bg-blue-600 dark:bg-blue-500 h-1.5 rounded-full transition-all" 
+                      style={{ width: `${compressionProgress > 0 ? compressionProgress : uploadProgress}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex flex-wrap gap-2">
+                {imagePreviewUrls.map((previewUrl, index) => (
+                  <div key={index} className="relative inline-block">
+                    <img 
+                      src={previewUrl} 
+                      alt={`معاينة الصورة ${index + 1}`} 
+                      className="h-20 w-auto rounded border border-gray-300 dark:border-gray-600" 
+                    />
+                    <button
+                      onClick={() => handleCancelSingleImage(index)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center shadow-md"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={handleSendMessage} className="flex items-center space-x-2 rtl:space-x-reverse border-t border-gray-200 dark:border-gray-700 pt-3">
+          <Button
+            type="button"
+            onClick={handleOpenGallery}
+            disabled={isSendingMessage || isUploadingImage}
+            variant="ghost"
+            className="p-2 h-10 flex items-center justify-center text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-md"
+            title="اختيار من المعرض"
+          >
+            <Image className="h-5 w-5" />
+          </Button>
+          
+          <Button
+            type="button"
+            onClick={handleCapturePhoto}
+            disabled={isSendingMessage || isUploadingImage}
+            variant="ghost"
+            className="p-2 h-10 flex items-center justify-center text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-md"
+            title="التقاط صورة"
+          >
+            <Camera className="h-5 w-5" />
+          </Button>
+          
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageSelect}
+            multiple
+            className="hidden"
+          />
+          
           <input
             ref={inputRef}
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="اكتب رسالتك هنا..."
-            disabled={isSendingMessage}
+            disabled={isSendingMessage || isUploadingImage}
             className={cn(
                "flex-1 file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input flex h-10 w-full min-w-0 rounded-md border bg-transparent px-3 py-2 text-base shadow-sm transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
                "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
@@ -1129,18 +1593,27 @@ function MessageSection({ listId, currentUser }: { listId: string; currentUser: 
               }
             }}
           />
+          
           <Button
             type="submit"
-            disabled={isSendingMessage || !newMessage.trim()}
+            disabled={isSendingMessage || isUploadingImage || (!newMessage.trim() && imagePreviewUrls.length === 0)}
             className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 rounded-md h-10 px-4"
           >
-            {isSendingMessage ? (
+            {isSendingMessage || isUploadingImage ? (
               <RefreshCw className="h-5 w-5 animate-spin" />
             ) : (
               <Send className="h-5 w-5" />
             )}
           </Button>
         </form>
+
+        {previewImage && (
+          <ImagePreviewModal
+            imageUrl={previewImage}
+            isOpen={!!previewImage}
+            onClose={handleCloseImagePreview}
+          />
+        )}
       </CardContent>
     </Card>
   );
