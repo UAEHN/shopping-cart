@@ -1,12 +1,12 @@
 {
   "name": "قوائم التسوق التفاعلية",
-  "short_name": "قوائم التسوق",
+  "short_name": "عربة التسوق",
   "description": "تطبيق لإنشاء وإدارة قوائم التسوق ومشاركتها مع الآخرين",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#3b82f6",
   "orientation": "portrait",
+  "background_color": "#0d1117",
+  "theme_color": "#2196f3",
   "icons": [
     {
       "src": "/icons/icon-72x72.png",
