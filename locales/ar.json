@@ -1,0 +1,41 @@
+{
+  "common": {
+    "unknownTime": "وقت غير معروف",
+    "save": "حفظ",
+    "cancel": "إلغاء"
+  },
+  "listDetails": {
+    "title": "تفاصيل القائمة",
+    "addItem": "إضافة عنصر",
+    "itemNamePlaceholder": "اسم العنصر",
+    "itemQuantityPlaceholder": "الكمية",
+    "itemUnitPlaceholder": "الوحدة (اختياري)",
+    "add": "إضافة"
+  },
+  "profile": {
+    "title": "الملف الشخصي",
+    "name": "الاسم",
+    "email": "البريد الإلكتروني",
+    "language": "اللغة",
+    "arabic": "العربية",
+    "english": "الإنجليزية"
+  },
+  "contacts": {
+    "title": "جهات الاتصال",
+    "searchPlaceholder": "البحث عن جهات الاتصال...",
+    "newContact": "جهة اتصال جديدة"
+  },
+  "header": {
+    "searchPlaceholder": "بحث...",
+    "messages": "الرسائل",
+    "settings": "الإعدادات",
+    "logout": "تسجيل الخروج"
+  },
+  "notifications": {
+    "ariaLabel": "إشعارات",
+    "dropdownTitle": "الإشعارات",
+    "markAllAsRead": "تعيين الكل كمقروء",
+    "noNewNotifications": "لا توجد إشعارات جديدة",
+    "viewAll": "عرض كل الإشعارات"
+  }
+} 

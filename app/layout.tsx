@@ -6,6 +6,7 @@ import { Providers } from "./providers";
 import { Toaster } from "@/components/ui/toast";
 import { RegisterSW } from "@/components/pwa/register-sw";
 import RequestNotificationPermission from '@/components/functional/request-notification-permission';
+import I18nInitializer from '@/components/I18nInitializer';
 
 // استيراد خط مناسب للغة العربية
 const tajawal = Tajawal({ 
@@ -58,15 +59,17 @@ export default function RootLayout({
         <meta name="theme-color" content="#3b82f6" />
       </head>
       <body className={`${tajawal.variable} ${inter.variable} font-tajawal min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 antialiased`}>
-        <Providers>
-          <RequestNotificationPermission />
-          <div className="flex-1 pb-16 pt-16 max-w-screen-lg mx-auto w-full">
-            {children}
-          </div>
-          <Navbar />
-          <Toaster />
-          <RegisterSW />
-        </Providers>
+        <I18nInitializer>
+          <Providers>
+            <RequestNotificationPermission />
+            <div className="flex-1 pb-16 pt-16 max-w-screen-lg mx-auto w-full">
+              {children}
+            </div>
+            <Navbar />
+            <Toaster />
+            <RegisterSW />
+          </Providers>
+        </I18nInitializer>
       </body>
     </html>
   );

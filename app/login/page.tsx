@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,8 +10,10 @@ import { signIn, signUp } from '@/services/supabase';
 import { toast } from '@/components/ui/toast';
 import { AppLogo } from '@/components/ui/app-logo';
 import { Eye, EyeOff, Mail, Lock, User, UserCircle } from 'lucide-react';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 export default function LoginPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -35,28 +38,28 @@ export default function LoginPage() {
         const { data, error: signInError } = await signIn(email, password, rememberMe);
         
         if (signInError) {
-          toast.error('فشل تسجيل الدخول: ' + signInError.message);
+          toast.error(t('auth.loginFailed') + signInError.message);
           throw new Error(signInError.message);
         }
         
         if (!data.user) {
-          toast.error('خطأ في تسجيل الدخول');
-          throw new Error('خطأ في تسجيل الدخول');
+          toast.error(t('auth.loginError'));
+          throw new Error(t('auth.loginError'));
         }
         
-        toast.success('تم تسجيل الدخول بنجاح!');
+        toast.success(t('auth.loginSuccess'));
         router.push('/home');
       } else {
         // إنشاء حساب جديد
         if (!username || username.length < 3) {
-          toast.warning('اسم المستخدم يجب أن يكون 3 أحرف على الأقل');
-          throw new Error('اسم المستخدم يجب أن يكون 3 أحرف على الأقل');
+          toast.warning(t('auth.usernameWarning'));
+          throw new Error(t('auth.usernameWarning'));
         }
         
         const { data, error: signUpError } = await signUp(email, password, username);
         
         if (signUpError) {
-          toast.error('فشل إنشاء الحساب: ' + signUpError.message);
+          toast.error(t('auth.registerFailed') + signUpError.message);
           throw new Error(signUpError.message);
         }
         
@@ -64,17 +67,17 @@ export default function LoginPage() {
         if (data.user) {
           // هنا يمكن إضافة كود لتحديث الاسم وإضافة المستخدم في جدول users
           
-          toast.success('تم إنشاء الحساب بنجاح!');
+          toast.success(t('auth.registerSuccess'));
           // التوجيه إلى الصفحة الرئيسية
           router.push('/home');
         } else {
-          toast.error('خطأ في إنشاء الحساب');
-          throw new Error('خطأ في إنشاء الحساب');
+          toast.error(t('auth.registerError'));
+          throw new Error(t('auth.registerError'));
         }
       }
     } catch (err: unknown) {
       console.error('Auth error:', err);
-      setError(err instanceof Error ? err.message : 'حدث خطأ غير متوقع');
+      setError(err instanceof Error ? err.message : t('auth.unexpectedError'));
     } finally {
       setIsLoading(false);
     }
@@ -98,19 +101,19 @@ export default function LoginPage() {
         </div>
         
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          تطبيق إدارة قوائم التسوق التفاعلي
+          {t('auth.appDescription')}
         </p>
       </div>
       
       <Card className="w-full max-w-md border-gray-200 dark:border-gray-700 shadow-lg dark:shadow-gray-800/20 rounded-xl overflow-hidden transition-all duration-300 animate-fadeIn">
         <CardHeader className="bg-gradient-to-r from-blue-50 to-white dark:from-gray-900 dark:to-gray-700 pb-8">
           <CardTitle className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-            {isLogin ? 'تسجيل الدخول' : 'إنشاء حساب'}
+            {isLogin ? t('auth.loginTitle') : t('auth.registerTitle')}
           </CardTitle>
           <CardDescription className="text-center text-gray-600 dark:text-gray-400 mt-2">
             {isLogin 
-              ? 'قم بإدخال بياناتك للوصول إلى حسابك' 
-              : 'قم بإنشاء حساب جديد للبدء في استخدام التطبيق'}
+              ? t('auth.loginDescription') 
+              : t('auth.registerDescription')}
           </CardDescription>
         </CardHeader>
         
@@ -119,13 +122,13 @@ export default function LoginPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center" htmlFor="email">
                 <Mail className="h-4 w-4 ml-1.5 text-gray-500 dark:text-gray-400" />
-                البريد الإلكتروني
+                {t('auth.emailLabel')}
               </label>
               <div className="relative">
                 <Input
                   id="email"
                   type="email"
-                  placeholder="your.email@example.com"
+                  placeholder={t('auth.emailPlaceholder')}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -138,13 +141,13 @@ export default function LoginPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center" htmlFor="password">
                 <Lock className="h-4 w-4 ml-1.5 text-gray-500 dark:text-gray-400" />
-                كلمة المرور
+                {t('auth.passwordLabel')}
               </label>
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="********"
+                  placeholder={t('auth.passwordPlaceholder')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -171,7 +174,7 @@ export default function LoginPage() {
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ml-2"
                 />
                 <label htmlFor="remember-me" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                  تذكرني
+                  {t('auth.rememberMe')}
                 </label>
               </div>
             )}
@@ -181,13 +184,13 @@ export default function LoginPage() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center" htmlFor="username">
                     <User className="h-4 w-4 ml-1.5 text-gray-500 dark:text-gray-400" />
-                    اسم المستخدم (فريد)
+                    {t('auth.usernameLabel')}
                   </label>
                   <div className="relative">
                     <Input
                       id="username"
                       type="text"
-                      placeholder="username123"
+                      placeholder={t('auth.usernamePlaceholder')}
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       required
@@ -200,12 +203,12 @@ export default function LoginPage() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center" htmlFor="name">
                     <UserCircle className="h-4 w-4 ml-1.5 text-gray-500 dark:text-gray-400" />
-                    الاسم الحقيقي
+                    {t('auth.nameLabel')}
                   </label>
                   <Input
                     id="name"
                     type="text"
-                    placeholder="محمد أحمد"
+                    placeholder={t('auth.namePlaceholder')}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
@@ -233,18 +236,19 @@ export default function LoginPage() {
               className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white font-medium py-5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:translate-y-[-1px]" 
               disabled={isLoading}
             >
-              {isLoading ? 'جاري التحميل...' : isLogin ? 'تسجيل الدخول' : 'إنشاء حساب'}
+              {isLoading ? t('auth.loadingButton') : isLogin ? t('auth.loginButton') : t('auth.registerButton')}
             </Button>
             
-            <div className="text-center">
+            <div className="flex items-center justify-between w-full text-center">
               <Button 
                 type="button" 
                 variant="link" 
-                className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
+                className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors p-0"
                 onClick={toggleView}
               >
-                {isLogin ? 'ليس لديك حساب؟ إنشاء حساب' : 'لديك حساب بالفعل؟ تسجيل الدخول'}
+                {isLogin ? t('auth.toggleToRegister') : t('auth.toggleToLogin')}
               </Button>
+              <LanguageSwitcher />
             </div>
           </CardFooter>
         </form>

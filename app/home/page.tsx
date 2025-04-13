@@ -11,113 +11,94 @@ import { supabase } from '@/services/supabase';
 import { toast } from '@/components/ui/toast';
 import { useNotifications, Notification, NotificationType } from '@/hooks/useRealtime';
 import { formatDistanceToNow } from 'date-fns';
-import { ar } from 'date-fns/locale';
+import { ar, enUS } from 'date-fns/locale';
 import { ClipboardCheck, Check, AlertCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export default function HomePage() {
   const router = useRouter();
+  const { t, i18n } = useTranslation();
   const [userName, setUserName] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [userData, setUserData] = useState<any>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   
+  const dateLocale = i18n.language.startsWith('ar') ? ar : enUS;
+
   useEffect(() => {
-    // التحقق من تسجيل الدخول والحصول على اسم المستخدم
     const checkAuth = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        
         if (!user) {
-          // إعادة التوجيه إلى صفحة تسجيل الدخول إذا لم يكن المستخدم مسجل
-          toast.info('الرجاء تسجيل الدخول أولاً');
+          toast.info(t('auth.loginRequired')); 
           router.push('/login');
           return;
         }
-        
-        // التحقق مما إذا كان الإشعار قد ظهر بالفعل في هذه الجلسة
         const welcomeShown = sessionStorage.getItem(`welcome_shown_${user.id}`);
-        
-        // الحصول على اسم المستخدم من الملف الشخصي
         const { data: profile } = await supabase
           .from('users')
           .select('name')
           .eq('id', user.id)
           .single();
-        
         if (profile && profile.name) {
           setUserName(profile.name);
-          
-          // عرض الإشعار فقط إذا لم يتم عرضه سابقًا
           if (!welcomeShown) {
-            toast.success(`أهلاً بك، ${profile.name}!`);
-            // تخزين أنه تم عرض الإشعار
+            toast.success(t('home.welcomeMessage', { name: profile.name })); 
             sessionStorage.setItem(`welcome_shown_${user.id}`, 'true');
           }
         } else {
-          // محاولة الحصول على المعلومات من metadata
           const { data: metadata } = await supabase.auth.getUser();
           const userMetadata = metadata.user?.user_metadata;
           let displayName = '';
-          
           if (userMetadata && userMetadata.name) {
             displayName = userMetadata.name;
           } else if (userMetadata && userMetadata.username) {
             displayName = userMetadata.username;
           }
-          
           setUserName(displayName);
-          
-          // عرض الإشعار فقط إذا لم يتم عرضه سابقًا ويوجد اسم للعرض
           if (!welcomeShown && displayName) {
-            toast.success(`أهلاً بك، ${displayName}!`);
-            // تخزين أنه تم عرض الإشعار
+            toast.success(t('home.welcomeMessage', { name: displayName })); 
             sessionStorage.setItem(`welcome_shown_${user.id}`, 'true');
           }
         }
       } catch (error) {
         console.error('Error checking auth:', error);
-        toast.error('حدث خطأ أثناء التحقق من الحساب');
+        toast.error(t('auth.authCheckError')); 
       } finally {
         setIsLoading(false);
       }
     };
-    
     checkAuth();
-  }, [router]);
-  
+  }, [router, t]);
+
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         setIsLoadingUser(true);
         const { data: { user } } = await supabase.auth.getUser();
-        
         if (!user) {
           router.push('/login');
           return;
         }
-        
         const { data: userData, error: userError } = await supabase
           .from('users')
           .select('*')
           .eq('id', user.id)
           .single();
-          
         if (userError) throw userError;
-        
         if (userData) {
           setUserData(userData);
         }
       } catch (error) {
         console.error('Error fetching user data:', error);
-        toast.error('حدث خطأ أثناء تحميل البيانات');
+        toast.error(t('home.dataLoadError')); 
       } finally {
         setIsLoadingUser(false);
       }
     };
-    
     fetchUserData();
-  }, [router]);
-  
+  }, [router, t]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -125,7 +106,7 @@ export default function HomePage() {
           <div className="animate__pulse h-16 w-16 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
             <ShoppingCart className="h-8 w-8 text-blue-500 dark:text-blue-300" />
           </div>
-          <span>جاري التحميل...</span>
+          <span>{t('common.loading')}</span>
         </div>
       </div>
     );
@@ -133,7 +114,7 @@ export default function HomePage() {
 
   const handleCreateNewList = () => {
     router.push('/create-list');
-    toast.info('جاري إنشاء قائمة جديدة...');
+    toast.info(t('home.creatingNewList'));
   };
 
   return (
@@ -142,7 +123,7 @@ export default function HomePage() {
       
       <div className="space-y-6 mt-4">
         <h1 className="text-2xl font-bold animate__animated animate__fadeIn bg-gradient-to-l from-blue-600 to-blue-800 dark:from-blue-500 dark:to-blue-300 bg-clip-text text-transparent py-2">
-          {userName ? `مرحباً، ${userName}` : 'مرحباً بك في سلتي'}
+          {userName ? t('home.welcome', { name: userName }) : t('home.welcomeFallback')}
         </h1>
         
         <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-white dark:from-blue-950 dark:to-gray-900 dark:border-blue-800 transition-all duration-300 hover:shadow-lg rounded-2xl overflow-hidden">
@@ -152,16 +133,16 @@ export default function HomePage() {
                 <ShoppingCart className="h-12 w-12 text-blue-600 dark:text-blue-300" />
               </div>
               <div>
-                <h2 className="font-bold text-xl text-blue-800 dark:text-blue-300">أنشئ قائمة تسوق جديدة</h2>
+                <h2 className="font-bold text-xl text-blue-800 dark:text-blue-300">{t('home.createNewListTitle')}</h2>
                 <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm">
-                  أضف المنتجات وأرسلها إلى أصدقائك
+                  {t('home.createNewListDescription')}
                 </p>
               </div>
               <Button 
                 className="w-full transition-all duration-300 hover:bg-blue-700 dark:hover:bg-blue-700 rounded-xl py-6 text-lg font-medium bg-blue-600 dark:bg-blue-800 shadow-md hover:shadow-lg"
                 onClick={handleCreateNewList}
               >
-                قائمة جديدة
+                {t('home.newListButton')}
               </Button>
             </div>
           </CardContent>
@@ -174,9 +155,9 @@ export default function HomePage() {
                 <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-full mt-2 mb-3">
                   <ShoppingCart className="h-6 w-6 text-gray-600 dark:text-gray-300" />
                 </div>
-                <h3 className="font-medium text-sm">قوائم التسوق</h3>
+                <h3 className="font-medium text-sm">{t('home.shoppingListsCardTitle')}</h3>
                 <span className="mt-2 text-blue-600 dark:text-blue-400 text-xs">
-                  عرض الكل
+                  {t('home.viewAllLink')}
                 </span>
               </CardContent>
             </Card>
@@ -188,9 +169,9 @@ export default function HomePage() {
                 <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-full mt-2 mb-3">
                   <Users className="h-6 w-6 text-gray-600 dark:text-gray-300" />
                 </div>
-                <h3 className="font-medium text-sm">الأشخاص</h3>
+                <h3 className="font-medium text-sm">{t('home.contactsCardTitle')}</h3>
                 <span className="mt-2 text-blue-600 dark:text-blue-400 text-xs">
-                  عرض الكل
+                  {t('home.viewAllLink')}
                 </span>
               </CardContent>
             </Card>
@@ -199,7 +180,7 @@ export default function HomePage() {
         
         <div className="mt-8">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">آخر الإشعارات</h2>
+            <h2 className="text-xl font-semibold">{t('home.latestNotificationsTitle')}</h2>
             <Button 
               variant="ghost" 
               size="sm" 
@@ -207,18 +188,14 @@ export default function HomePage() {
               onClick={() => router.push('/notifications')}
             >
               <Bell className="h-4 w-4" />
-              <span>الكل</span>
+              <span>{t('home.viewAllLink')}</span>
             </Button>
           </div>
           
           {isLoadingUser ? (
             <Card className="rounded-xl overflow-hidden border-gray-200 dark:border-gray-700 transition-all duration-300">
-              <CardContent className="p-6 text-center">
-                <div className="animate-pulse flex flex-col items-center">
-                  <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-full mb-4"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
-                </div>
+              <CardContent className="p-6 text-center text-gray-500 dark:text-gray-400">
+                {t('notifications.loading')}
               </CardContent>
             </Card>
           ) : (
@@ -230,24 +207,23 @@ export default function HomePage() {
   );
 }
 
-// مكون قائمة الإشعارات
 function NotificationsList({ userId, limit = 3, showEmpty = true }: { userId?: string, limit?: number, showEmpty?: boolean }) {
   const { notifications, isLoading, markAsRead } = useNotifications(userId || null, limit);
   const router = useRouter();
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language.startsWith('ar') ? ar : enUS;
 
-  // تنسيق التاريخ بشكل نسبي
   const formatDate = (dateString: string) => {
     try {
       return formatDistanceToNow(new Date(dateString), { 
         addSuffix: true,
-        locale: ar
+        locale: dateLocale 
       });
     } catch (error) {
-      return 'وقت غير معروف';
+      return t('common.unknownTime'); 
     }
   };
 
-  // الحصول على الأيقونة المناسبة لنوع الإشعار
   const getNotificationIcon = (type: NotificationType) => {
     switch (type) {
       case 'NEW_LIST':
@@ -263,12 +239,9 @@ function NotificationsList({ userId, limit = 3, showEmpty = true }: { userId?: s
     }
   };
 
-  // معالجة النقر على الإشعار
   const handleNotificationClick = (notification: Notification) => {
-    // تحديث الإشعار كمقروء
     markAsRead(notification.id);
     
-    // توجيه المستخدم حسب نوع الإشعار
     if (notification.related_list_id) {
       router.push(`/lists/${notification.related_list_id}`);
     }
@@ -276,19 +249,9 @@ function NotificationsList({ userId, limit = 3, showEmpty = true }: { userId?: s
 
   if (isLoading) {
     return (
-      <Card className="rounded-xl overflow-hidden border-gray-200 dark:border-gray-700 transition-all duration-300">
-        <CardContent className="p-6">
-          <div className="space-y-4">
-            {[...Array(2)].map((_, i) => (
-              <div key={i} className="animate-pulse flex items-start gap-3">
-                <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-full flex-shrink-0"></div>
-                <div className="flex-1">
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
-                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
-                </div>
-              </div>
-            ))}
-          </div>
+      <Card className="rounded-xl">
+        <CardContent className="p-4 text-center text-gray-500">
+          {t('notifications.loading')}
         </CardContent>
       </Card>
     );
@@ -300,7 +263,7 @@ function NotificationsList({ userId, limit = 3, showEmpty = true }: { userId?: s
         <CardContent className="p-6 text-center">
           <p className="text-gray-500 dark:text-gray-400 flex flex-col items-center gap-3">
             <Bell className="h-8 w-8 text-gray-400 dark:text-gray-500 opacity-50" />
-            <span>لا توجد إشعارات حتى الآن</span>
+            <span>{t('notifications.noNotifications')}</span>
           </p>
         </CardContent>
       </Card>

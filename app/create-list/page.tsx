@@ -9,17 +9,20 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast, clearAllToasts } from '@/components/ui/toast';
 import { supabase } from '@/services/supabase';
-import { ShoppingCart, Plus, X, Send, Trash2 } from 'lucide-react';
+import { ShoppingCart, Plus, X, Send, Trash2, RefreshCw } from 'lucide-react';
 import SelectRecipientDialog from '@/components/lists/select-recipient-dialog';
 import { createNotification } from '@/utils/notifications';
+import { useTranslation } from 'react-i18next';
 
 interface ListItem {
   id: string;
   name: string;
+  list_id?: string;
 }
 
 export default function CreateListPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [listItems, setListItems] = useState<ListItem[]>([]);
   const [newItem, setNewItem] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -29,32 +32,25 @@ export default function CreateListPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // التحقق من تسجيل الدخول
     const checkAuth = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        
         if (!user) {
-          toast.info('الرجاء تسجيل الدخول أولاً', 2000);
+          toast.info(t('auth.loginRequired'), 2000);
           router.push('/login');
           return;
         }
-        
-        // حفظ اسم المستخدم الحالي لاستخدامه عند حفظ القائمة
         const userMetadata = user.user_metadata;
         let username = '';
-        
         if (userMetadata && userMetadata.username) {
           username = userMetadata.username;
         } else {
-          // جلب اسم المستخدم من قاعدة البيانات إذا لم يكن موجود في metadata
           try {
             const { data: profileData } = await supabase
               .from('users')
               .select('username')
               .eq('id', user.id)
               .single();
-            
             if (profileData) {
               username = profileData.username;
             }
@@ -62,110 +58,54 @@ export default function CreateListPage() {
             console.error('Error fetching username:', profileError);
           }
         }
-        
         if (!username) {
           console.error('Username not found for user');
-          toast.error('حدث خطأ: لم يتم العثور على اسم المستخدم', 2000);
+          toast.error(t('lists.usernameNotFound'), 2000);
           router.push('/profile');
           return;
         }
-        
         setCurrentUser(username);
         setIsLoading(false);
-        
-        // تركيز حقل الإدخال تلقائيًا
         setTimeout(() => {
           if (inputRef.current) {
             inputRef.current.focus();
           }
         }, 500);
-        
-        // اختبار إرسال إشعار لجميع المستخدمين
-        // const testNotifications = async () => { // Commented out start
-        //   try {
-        //     // الحصول على جميع المستخدمين باستثناء المستخدم الحالي
-        //     const { data: allUsers, error: usersError } = await supabase
-        //       .from('users')
-        //       .select('id, username')
-        //       .neq('username', username);
-              
-        //     if (usersError) {
-        //       console.error('Error fetching users for notifications test:', usersError);
-        //       return;
-        //     }
-            
-        //     console.log('إرسال إشعارات اختبارية للمستخدمين:', allUsers);
-            
-        //     // إرسال إشعار لكل مستخدم
-        //     for (const testUser of allUsers) {
-        //       await createNotification(
-        //         // Need to fetch user object properly here if re-enabled
-        //         // For now, this structure won't work with the modified createNotification
-        //         testUser, // This won't work directly anymore, needs {id, username} object
-        //         `إشعار تجريبي من ${username} - ${new Date().toLocaleTimeString()}`,
-        //         'NEW_LIST',
-        //         null,
-        //         null
-        //       );
-        //     }
-        //   } catch (err) {
-        //     console.error('Error in test notifications:', err);
-        //   }
-        // };
-        
-        // تعليق هذا السطر عندما لا تريد إرسال إشعارات اختبارية
-        // testNotifications(); // Commented out call
       } catch (error) {
         console.error('Error checking auth:', error);
-        toast.error('حدث خطأ أثناء التحقق من الحساب', 2000);
+        toast.error(t('auth.authCheckError'), 2000);
         router.push('/login');
       }
     };
-    
-    // مسح الإشعارات السابقة عند تحميل الصفحة
     clearAllToasts();
     checkAuth();
-    
-    // التنظيف عند تفكيك المكوّن
     return () => {
-      // مسح الإشعارات عند مغادرة الصفحة
       clearAllToasts();
     };
-  }, [router]);
+  }, [router, t]);
 
-  // إضافة عنصر جديد إلى القائمة
   const addItem = () => {
     if (!newItem.trim()) return;
-    
     const trimmedItem = newItem.trim();
-    
-    // التحقق من عدم وجود العنصر مسبقًا في القائمة
-    const itemExists = listItems.some(item => 
+    const itemExists = listItems.some(item =>
       item.name.toLowerCase() === trimmedItem.toLowerCase()
     );
-    
     if (itemExists) {
-      toast.error('هذا المنتج موجود بالفعل في القائمة', 1500);
+      toast.error(t('createList.itemAlreadyExists'), 1500);
       return;
     }
-    
-    // إضافة العنصر مع معرّف فريد
     const newId = Date.now().toString();
     setListItems(prev => [...prev, { id: newId, name: trimmedItem }]);
     setNewItem('');
-    
-    // تركيز حقل الإدخال مرة أخرى
     if (inputRef.current) {
       inputRef.current.focus();
     }
   };
 
-  // حذف عنصر من القائمة
   const removeItem = (id: string) => {
     setListItems(prev => prev.filter(item => item.id !== id));
   };
 
-  // معالجة الضغط على مفتاح الإدخال
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -173,17 +113,14 @@ export default function CreateListPage() {
     }
   };
 
-  // فتح نافذة اختيار المستلم
   const openSelectRecipientDialog = () => {
     if (listItems.length === 0) {
-      toast.error('لا يمكن إرسال قائمة فارغة', 1500);
+      toast.error(t('createList.cannotSendEmpty'), 1500);
       return;
     }
-    
     setIsDialogOpen(true);
   };
 
-  // البحث عن مستخدم بالاسم
   const findUserByUsername = async (username: string): Promise<{ id: string; username: string; } | null> => {
     try {
       const { data, error } = await supabase
@@ -209,103 +146,79 @@ export default function CreateListPage() {
     }
   };
 
-  // معالجة اختيار المستلم وإرسال القائمة
   const handleSelectRecipient = async (recipientUsername: string) => {
     setIsSending(true);
     setIsDialogOpen(false);
-
-    // Get current user ID directly for insertion
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-
     if (authError || !user) {
         console.error('Error getting current user for list creation:', authError);
-        toast.error('خطأ في الحصول على المستخدم الحالي', 2000);
+        toast.error(t('createList.currentUserError'), 2000);
         setIsSending(false);
         return;
     }
-
     const currentUserId = user.id;
-    // Get username from metadata or profile (as done in useEffect)
-    const currentUserUsername = user.user_metadata?.username || (await findUserByUsername(user.email || ''))?.username || ''; // Fallback needed if username isn't in metadata
-    
-    if (!currentUserUsername) { 
+    const currentUserUsername = user.user_metadata?.username || (await findUserByUsername(user.email || ''))?.username || '';
+    if (!currentUserUsername) {
         console.error('Could not determine current username for list creation');
-        toast.error('لم يتم تحديد اسم المستخدم الحالي', 2000);
+        toast.error(t('createList.currentUsernameError'), 2000);
         setIsSending(false);
         return;
     }
-
     try {
-      // Ensure recipient exists
       const recipient = await findUserByUsername(recipientUsername);
       if (!recipient) {
-        toast.error(`المستخدم '${recipientUsername}' غير موجود`, 2000);
+        toast.error(t('createList.recipientNotFound', { name: recipientUsername }), 2000);
         setIsSending(false);
         return;
       }
-      
-      // === DEBUGGING: Log the object being inserted ===
       const listToInsert = {
-        creator_id: currentUserId, 
+        creator_id: currentUserId,
         recipient_id: recipient.id,
-        creator_username: currentUserUsername, 
-        recipient_username: recipient.username, 
+        creator_username: currentUserUsername,
+        recipient_username: recipient.username,
+        status: 'new'
       };
-      console.log('Attempting to insert list:', JSON.stringify(listToInsert, null, 2));
-      // =================================================
-      
-      // إنشاء القائمة في جدول lists, including creator_id
-      const { data: listData, error: listError } = await supabase
+      const { data: newListData, error: listError } = await supabase
         .from('lists')
-        .insert(listToInsert) // Use the logged object
-        .select('id') 
+        .insert(listToInsert)
+        .select('id')
         .single();
-      
-      if (listError) {
-        console.error('Detailed Error creating list:', JSON.stringify(listError, null, 2));
-        toast.error(`حدث خطأ أثناء إنشاء القائمة: ${listError.message || 'خطأ غير معروف'}`, 2000);
+      if (listError || !newListData) {
+        console.error('Error creating list:', listError);
+        toast.error(t('createList.listCreationError'), 2000);
         setIsSending(false);
         return;
       }
-      
-      if (!listData || !listData.id) {
-        toast.error('فشل في استرداد معرف القائمة', 2000);
-        setIsSending(false);
-        return;
-      }
-      
-      // إضافة العناصر إلى جدول items
+      const listId = newListData.id;
       const itemsToInsert = listItems.map(item => ({
-        list_id: listData.id,
         name: item.name,
+        list_id: listId,
         purchased: false
       }));
-      
-      const { error: itemsError } = await supabase
-        .from('items')
-        .insert(itemsToInsert);
-      
+      const { error: itemsError } = await supabase.from('items').insert(itemsToInsert);
       if (itemsError) {
-        console.error('Error adding items:', itemsError);
-        toast.error(`حدث خطأ أثناء إضافة العناصر: ${itemsError.message || 'خطأ غير معروف'}`, 2000);
+        console.error('Error inserting items:', itemsError);
+        toast.error(t('createList.itemInsertionError'), 2000);
         setIsSending(false);
         return;
       }
-      
-      // Note: The notification is now handled by database triggers
-      // No need to call createNotification() directly
-      
-      toast.success('تم إرسال القائمة بنجاح!', 1500);
-      
-      // الانتقال إلى صفحة القوائم بعد الإرسال (تأخير بسيط للسماح برؤية الـ toast)
-      setTimeout(() => {
-        router.push('/lists?tab=sent');
-      }, 1500);
-
+      try {
+        await createNotification(
+          recipient,
+          t('notifications.newListReceived', { sender: currentUserUsername }),
+          'NEW_LIST',
+          listId,
+          recipient.id
+        );
+        console.log('Notification creation attempt finished.');
+      } catch (notificationError) {
+        console.error('Error creating notification (will proceed anyway):', notificationError);
+      }
+      toast.success(t('createList.listSentSuccess'), 2000);
+      router.push('/lists?tab=sent');
     } catch (error) {
-      console.error('Error sending list:', error);
-      const errorMessage = error instanceof Error ? error.message : 'حدث خطأ غير معروف';
-      toast.error(`حدث خطأ أثناء إرسال القائمة: ${errorMessage}`, 2000);
+      console.error('Unexpected error sending list:', error);
+      toast.error(t('createList.unexpectedError'), 2000);
       setIsSending(false);
     }
   };
@@ -317,121 +230,132 @@ export default function CreateListPage() {
           <div className="bg-blue-100 dark:bg-blue-900 p-4 rounded-full">
             <ShoppingCart className="h-10 w-10 text-blue-500 dark:text-blue-300" />
           </div>
-          <span className="text-xl">جاري التحميل...</span>
+          <span className="text-xl">{t('common.loading')}</span>
         </div>
       </div>
     );
   }
 
   return (
-    <>
-      <div className="p-4 pt-0 pb-20">
-        <Header title="قائمة جديدة" showBackButton />
-        
-        <div className="space-y-6 mt-8">
-          <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-white dark:from-blue-950 dark:to-gray-900 dark:border-blue-800 transition-all duration-300 hover:shadow-lg rounded-2xl overflow-hidden">
-            <CardContent className="p-6">
-              <div className="flex flex-col items-center mb-4">
-                <div className="bg-blue-100 dark:bg-blue-900 p-4 rounded-full mb-4 shadow-inner">
-                  <ShoppingCart className="h-10 w-10 text-blue-600 dark:text-blue-300" />
-                </div>
-                <h1 className="text-xl font-bold text-center text-gray-800 dark:text-gray-200">
-                  أنشئ قائمة التسوق الخاصة بك
-                </h1>
-                <p className="text-gray-600 dark:text-gray-400 text-center mt-2 text-sm">
-                  أضف المنتجات التي تريد إضافتها إلى قائمتك
-                </p>
+    <div className="p-4 pt-0 pb-20">
+      <Header title={t('createList.pageTitle')} showBackButton />
+
+      <div className="space-y-6 mt-8">
+        <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-white dark:from-blue-950 dark:to-gray-900 dark:border-blue-800 transition-all duration-300 hover:shadow-lg rounded-2xl overflow-hidden">
+          <CardContent className="p-6">
+            <div className="flex flex-col items-center mb-4">
+              <div className="bg-blue-100 dark:bg-blue-900 p-4 rounded-full mb-4 shadow-inner">
+                <ShoppingCart className="h-10 w-10 text-blue-600 dark:text-blue-300" />
               </div>
-              
-              <div className="relative mt-6">
-                <div className="relative bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm focus-within:shadow-md transition-all duration-200 border border-gray-200 dark:border-gray-700 flex">
-                  <Input
-                    ref={inputRef}
-                    type="text"
-                    placeholder="اكتب اسم منتج وأضغط إدخال..."
-                    value={newItem}
-                    onChange={(e) => setNewItem(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    className="border-0 shadow-none focus-visible:ring-0 py-6 text-base flex-1"
-                  />
-                  <Button 
-                    type="button" 
-                    onClick={addItem}
-                    className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 h-full px-4 rounded-r-xl"
-                  >
-                    <Plus className="h-5 w-5" />
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {listItems.length > 0 && (
-            <div className="space-y-4 animate__fadeIn">
-              <div className="flex justify-between items-center">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <ShoppingCart className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  <span>قائمة المنتجات</span>
-                  <Badge className="ml-2 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                    {listItems.length}
-                  </Badge>
-                </h2>
-                
+              <h1 className="text-xl font-bold text-center text-gray-800 dark:text-gray-200">
+                {t('createList.cardTitle')}
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400 text-center mt-2 text-sm">
+                {t('createList.cardDescription')}
+              </p>
+            </div>
+
+            <div className="relative mt-6">
+              <div className="relative bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm focus-within:shadow-md transition-all duration-200 border border-gray-200 dark:border-gray-700 flex">
+                <Input
+                  ref={inputRef}
+                  type="text"
+                  placeholder={t('createList.addItemPlaceholder')}
+                  value={newItem}
+                  onChange={(e) => setNewItem(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="border-0 shadow-none focus-visible:ring-0 py-6 text-base flex-1"
+                  aria-label={t('createList.addItemLabel')}
+                />
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30"
-                  onClick={() => setListItems([])}
+                  type="button"
+                  onClick={addItem}
+                  className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 h-full px-4 rounded-r-xl"
+                  aria-label={t('createList.addButton')}
                 >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  <span>مسح الكل</span>
-                </Button>
-              </div>
-              
-              <Card className="rounded-xl overflow-hidden border-gray-200 dark:border-gray-700">
-                <CardContent className="p-0">
-                  <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-                    {listItems.map((item, index) => (
-                      <li 
-                        key={item.id} 
-                        className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                        style={{ animationDelay: `${index * 50}ms` }}
-                      >
-                        <span className="font-medium">{item.name}</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 rounded-full text-red-500 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30"
-                          onClick={() => removeItem(item.id)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-              
-              <div className="mt-6 pt-4 flex justify-center">
-                <Button
-                  onClick={openSelectRecipientDialog}
-                  disabled={isSending || listItems.length === 0}
-                  className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 transition-all duration-300 rounded-xl py-6 px-8 text-lg font-medium shadow-md hover:shadow-lg flex items-center gap-2 w-full sm:w-auto"
-                >
-                  <Send className="h-5 w-5" />
-                  <span>{isSending ? 'جاري الإرسال...' : 'إرسال القائمة'}</span>
+                  <Plus className="h-5 w-5" />
                 </Button>
               </div>
             </div>
-          )}
-        </div>
+          </CardContent>
+        </Card>
+
+        {listItems.length > 0 && (
+          <div className="space-y-4 animate__fadeIn">
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <ShoppingCart className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <span>{t('createList.itemsListTitle')}</span>
+                <Badge className="ml-2 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                  {listItems.length}
+                </Badge>
+              </h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30"
+                onClick={() => setListItems([])}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                <span>{t('createList.clearAllButton')}</span>
+              </Button>
+            </div>
+
+            <Card className="rounded-xl overflow-hidden border-gray-200 dark:border-gray-700">
+              <CardContent className="p-0">
+                <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {listItems.map((item, index) => (
+                    <li
+                      key={item.id}
+                      className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      style={{ animationDelay: `${index * 50}ms` }}
+                    >
+                      <span className="font-medium text-gray-800 dark:text-gray-100">{item.name}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 rounded-full text-red-500 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30"
+                        onClick={() => removeItem(item.id)}
+                        aria-label={t('createList.removeItemAria', { name: item.name })}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+
+            <div className="mt-6 pt-4 flex justify-center">
+              <Button
+                onClick={openSelectRecipientDialog}
+                disabled={isSending || listItems.length === 0}
+                className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 transition-all duration-300 rounded-xl py-6 px-8 text-lg font-medium shadow-md hover:shadow-lg flex items-center gap-2 w-full sm:w-auto"
+              >
+                {isSending ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    <span>{t('createList.sendingButton')}</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-5 w-5" />
+                    <span>{t('createList.sendButton')}</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
-      
+
       <SelectRecipientDialog
         isOpen={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
         onSelectRecipient={handleSelectRecipient}
+        currentUser={currentUser}
+        isSending={isSending}
       />
-    </>
+    </div>
   );
 } 

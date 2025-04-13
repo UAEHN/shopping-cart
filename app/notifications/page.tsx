@@ -16,15 +16,16 @@ import { supabase } from '@/services/supabase';
 import { toast } from '@/components/ui/toast';
 import { useNotifications, Notification, NotificationType } from '@/hooks/useRealtime';
 import { formatDistanceToNow } from 'date-fns';
-import { ar } from 'date-fns/locale';
+import { ar, enUS } from 'date-fns/locale';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 
 export default function NotificationsPage() {
   const router = useRouter();
+  const { t, i18n } = useTranslation();
   const [userId, setUserId] = useState<string | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   
-  // Obtener el usuario actual
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -32,6 +33,7 @@ export default function NotificationsPage() {
         const { data: { user } } = await supabase.auth.getUser();
         
         if (!user) {
+          toast.error(t('auth.loginRequired'));
           router.push('/login');
           return;
         }
@@ -39,14 +41,14 @@ export default function NotificationsPage() {
         setUserId(user.id);
       } catch (error) {
         console.error('Error checking auth:', error);
-        toast.error('حدث خطأ أثناء التحقق من المستخدم');
+        toast.error(t('auth.authCheckError'));
       } finally {
         setIsLoadingUser(false);
       }
     };
     
     checkAuth();
-  }, [router]);
+  }, [router, t]);
   
   const { 
     notifications, 
@@ -56,7 +58,6 @@ export default function NotificationsPage() {
     markAllAsRead
   } = useNotifications(userId, 50);
   
-  // الحصول على الأيقونة المناسبة لنوع الإشعار
   const getNotificationIcon = (type: NotificationType) => {
     switch (type) {
       case 'NEW_LIST':
@@ -72,24 +73,21 @@ export default function NotificationsPage() {
     }
   };
   
-  // تنسيق التاريخ بشكل نسبي
   const formatDate = (dateString: string) => {
     try {
+      const locale = i18n.language.startsWith('ar') ? ar : enUS;
       return formatDistanceToNow(new Date(dateString), { 
         addSuffix: true,
-        locale: ar
+        locale: locale
       });
     } catch (error) {
-      return 'وقت غير معروف';
+      return t('common.unknownTime');
     }
   };
   
-  // معالجة النقر على الإشعار
   const handleNotificationClick = (notification: Notification) => {
-    // تحديث الإشعار كمقروء
     markAsRead(notification.id);
     
-    // توجيه المستخدم حسب نوع الإشعار
     if (notification.related_list_id) {
       router.push(`/lists/${notification.related_list_id}`);
     }
@@ -99,13 +97,13 @@ export default function NotificationsPage() {
   
   return (
     <div className="p-4 pt-0 pb-20">
-      <Header title="الإشعارات" showBackButton />
+      <Header title={t('notifications.pageTitle')} showBackButton />
       
       <div className="mt-6 space-y-4">
         {unreadCount > 0 && (
           <div className="flex justify-between items-center">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              لديك <span className="font-semibold text-blue-600 dark:text-blue-400">{unreadCount}</span> إشعارات غير مقروءة
+              {t('notifications.unreadCountMessage', { count: unreadCount })}
             </p>
             <Button 
               variant="outline" 
@@ -114,13 +112,12 @@ export default function NotificationsPage() {
               onClick={() => markAllAsRead()}
             >
               <CheckCircle className="h-3 w-3" />
-              <span>تعيين الكل كمقروء</span>
+              <span>{t('notifications.markAllAsRead')}</span>
             </Button>
           </div>
         )}
         
         {isLoading ? (
-          // حالة التحميل
           <div className="space-y-3">
             {[...Array(4)].map((_, i) => (
               <Card key={i} className="rounded-xl overflow-hidden border-gray-200 dark:border-gray-700">
@@ -137,7 +134,6 @@ export default function NotificationsPage() {
             ))}
           </div>
         ) : notifications.length > 0 ? (
-          // عرض الإشعارات
           <div className="space-y-3">
             {notifications.map((notification) => (
               <Card 
@@ -168,13 +164,12 @@ export default function NotificationsPage() {
             ))}
           </div>
         ) : (
-          // لا توجد إشعارات
           <Card className="bg-gradient-to-r from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 rounded-xl overflow-hidden border-gray-200 dark:border-gray-700 transition-all duration-300">
             <CardContent className="p-10 text-center">
               <p className="text-gray-500 dark:text-gray-400 flex flex-col items-center gap-3">
                 <Bell className="h-16 w-16 text-gray-400 dark:text-gray-500 opacity-50" />
-                <span className="text-lg">لا توجد إشعارات</span>
-                <span className="text-sm">سيتم إظهار الإشعارات هنا عندما تتلقى قوائم جديدة أو يتم تحديث حالة القوائم</span>
+                <span className="text-lg">{t('notifications.noNotificationsTitle')}</span>
+                <span className="text-sm">{t('notifications.noNotificationsDescription')}</span>
               </p>
             </CardContent>
           </Card>

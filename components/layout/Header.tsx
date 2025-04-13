@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { ThemeSwitcher } from '@/components/ui/theme-switcher';
 import { AppLogo } from '@/components/ui/app-logo';
 import { NotificationsDropdown } from '@/components/notifications/notifications-dropdown';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 interface HeaderProps {
   showBackButton?: boolean;
@@ -74,6 +75,8 @@ export default function Header({
           {extras}
           
           <NotificationsDropdown />
+          
+          <LanguageSwitcher />
           
           <ThemeSwitcher />
           

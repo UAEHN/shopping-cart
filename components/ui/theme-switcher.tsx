@@ -9,9 +9,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Moon, Sun, Monitor } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export function ThemeSwitcher() {
   const { theme, setTheme } = useTheme();
+  const { t } = useTranslation();
 
   return (
     <DropdownMenu>
@@ -24,7 +26,7 @@ export function ThemeSwitcher() {
           ) : (
             <Monitor className="h-5 w-5 transition-all" />
           )}
-          <span className="sr-only">تغيير السمة</span>
+          <span className="sr-only">{t('theme.toggleTheme')}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="animate__fadeIn">
@@ -33,21 +35,21 @@ export function ThemeSwitcher() {
           className="flex items-center gap-2 cursor-pointer"
         >
           <Sun className="h-4 w-4" />
-          <span>فاتح</span>
+          <span>{t('theme.light')}</span>
         </DropdownMenuItem>
         <DropdownMenuItem 
           onClick={() => setTheme('dark')}
           className="flex items-center gap-2 cursor-pointer"
         >
           <Moon className="h-4 w-4" />
-          <span>مظلم</span>
+          <span>{t('theme.dark')}</span>
         </DropdownMenuItem>
         <DropdownMenuItem 
           onClick={() => setTheme('system')}
           className="flex items-center gap-2 cursor-pointer"
         >
           <Monitor className="h-4 w-4" />
-          <span>النظام</span>
+          <span>{t('theme.system')}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

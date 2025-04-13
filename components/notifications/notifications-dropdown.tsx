@@ -5,11 +5,13 @@ import { Bell, MailCheck, ShoppingCart, ClipboardCheck, AlertCircle, Check } fro
 import { useNotifications, Notification, NotificationType } from '@/hooks/useRealtime';
 import { useAuth } from '@/hooks/useAuth';
 import { formatDistanceToNow } from 'date-fns';
-import { ar } from 'date-fns/locale';
+import { ar, enUS } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
 
 export function NotificationsDropdown() {
   const { user } = useAuth();
+  const { t, i18n } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -87,12 +89,13 @@ export function NotificationsDropdown() {
   // تنسيق التاريخ بشكل نسبي
   const formatDate = (dateString: string) => {
     try {
+      const locale = i18n.language === 'ar' ? ar : enUS;
       return formatDistanceToNow(new Date(dateString), { 
         addSuffix: true,
-        locale: ar
+        locale: locale
       });
     } catch (error) {
-      return 'وقت غير معروف';
+      return t('common.unknownTime');
     }
   };
 
@@ -116,7 +119,7 @@ export function NotificationsDropdown() {
       <button
         className="relative p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
         onClick={handleToggleDropdown}
-        aria-label="إشعارات"
+        aria-label={t('notifications.ariaLabel')}
       >
         <Bell className="h-6 w-6" />
         
@@ -130,9 +133,9 @@ export function NotificationsDropdown() {
 
       {/* قائمة الإشعارات */}
       {isOpen && (
-        <div className="absolute left-0 mt-2 w-80 sm:w-96 bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 z-50">
+        <div className="absolute ltr:right-0 rtl:left-0 mt-2 w-80 sm:w-96 bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 z-50">
           <div className="p-3 bg-gray-50 dark:bg-gray-750 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-            <h3 className="font-semibold text-gray-800 dark:text-gray-200">الإشعارات</h3>
+            <h3 className="font-semibold text-gray-800 dark:text-gray-200">{t('notifications.dropdownTitle')}</h3>
             
             {unreadCount > 0 && (
               <button 
@@ -141,7 +144,7 @@ export function NotificationsDropdown() {
               >
                 <div className="flex items-center gap-1">
                   <MailCheck className="h-4 w-4" />
-                  <span>تعيين الكل كمقروء</span>
+                  <span>{t('notifications.markAllAsRead')}</span>
                 </div>
               </button>
             )}
@@ -190,7 +193,7 @@ export function NotificationsDropdown() {
                   <Bell className="h-12 w-12 text-gray-300 dark:text-gray-600" />
                 </div>
                 <p className="text-gray-500 dark:text-gray-400 text-sm">
-                  لا توجد إشعارات جديدة
+                  {t('notifications.noNewNotifications')}
                 </p>
               </div>
             )}
@@ -204,7 +207,7 @@ export function NotificationsDropdown() {
                 setIsOpen(false);
               }}
             >
-              عرض كل الإشعارات
+              {t('notifications.viewAll')}
             </button>
           </div>
         </div>

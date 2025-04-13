@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +30,7 @@ export function AddContactDialog({
   buttonSize = 'sm',
   buttonClass = '',
 }: AddContactDialogProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [contactData, setContactData] = useState({
@@ -43,15 +45,13 @@ export function AddContactDialog({
   };
 
   const handleAddContact = async () => {
-    // تنظيف اسم المستخدم من الفراغات الزائدة
     const trimmedUsername = contactData.name.trim();
     
     if (!trimmedUsername) {
-      toast.error('الرجاء إدخال اسم جهة الاتصال');
+      toast.error(t('contacts.addErrorEmpty'));
       return;
     }
 
-    // تحديث اسم المستخدم بعد التنظيف
     if (trimmedUsername !== contactData.name) {
       setContactData(prev => ({ ...prev, name: trimmedUsername }));
     }
@@ -59,31 +59,27 @@ export function AddContactDialog({
     try {
       setIsSubmitting(true);
 
-      // الحصول على المستخدم الحالي
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        toast.error('يجب تسجيل الدخول أولاً');
+        toast.error(t('auth.loginRequired'));
         return;
       }
 
       console.log('Current user:', user);
       console.log('User ID:', user.id);
 
-      // الحصول على بيانات المستخدم الحالي
       const { data: currentUserData } = await supabase
         .from('users')
         .select('username')
         .eq('id', user.id)
         .single();
         
-      // التحقق من أن المستخدم لا يضيف نفسه كجهة اتصال
       if (currentUserData && currentUserData.username === trimmedUsername) {
-        toast.error('لا يمكن إضافة نفسك كجهة اتصال');
+        toast.error(t('contacts.addErrorSelf'));
         setIsSubmitting(false);
         return;
       }
 
-      // التحقق من أن جهة الاتصال غير موجودة مسبقاً
       const { data: existingContacts, error: existingContactError } = await supabase
         .from('contacts')
         .select('id')
@@ -93,12 +89,11 @@ export function AddContactDialog({
       console.log('Existing contacts check:', existingContacts);
         
       if (existingContacts && existingContacts.length > 0) {
-        toast.error(`جهة الاتصال "${trimmedUsername}" موجودة بالفعل في قائمة جهات اتصالك`);
+        toast.error(t('contacts.addErrorAlreadyExists'));
         setIsSubmitting(false);
         return;
       }
 
-      // إضافة جهة اتصال مباشرة
       try {
         const { error: contactError } = await supabase.from('contacts').insert({
           user_id: user.id,
@@ -112,17 +107,17 @@ export function AddContactDialog({
         
         console.log('Contact added successfully');
         
-        toast.success('تمت إضافة جهة الاتصال بنجاح');
+        toast.success(t('contacts.addSuccess'));
         setContactData({ name: '', email: '', phone: '' });
         setOpen(false);
         onContactAdded();
       } catch (contactError) {
         console.error('Failed to add contact:', contactError);
-        toast.error('فشل في إضافة جهة الاتصال');
+        toast.error(t('contacts.addError'));
       }
     } catch (error) {
       console.error('Error in contact addition process:', error);
-      toast.error('حدث خطأ أثناء إضافة جهة الاتصال');
+      toast.error(t('contacts.addError'));
     } finally {
       setIsSubmitting(false);
     }
@@ -137,35 +132,35 @@ export function AddContactDialog({
         onClick={() => setOpen(true)}
       >
         <UserPlus className="h-4 w-4 mr-2" />
-        إضافة
+        {t('contacts.addButton')}
       </Button>
       <AlertDialogContent className="rounded-xl bg-white dark:bg-gray-850 p-0 max-w-md w-full border border-gray-200 dark:border-gray-700 shadow-xl animate__fadeIn overflow-hidden">
         <div className="bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 p-6 flex flex-col items-center">
           <div className="bg-white dark:bg-gray-800 rounded-full p-3 mb-4 shadow-md">
             <User className="h-6 w-6 text-blue-600 dark:text-blue-400" />
           </div>
-          <AlertDialogTitle className="text-xl font-bold text-white text-center">إضافة جهة اتصال جديدة</AlertDialogTitle>
+          <AlertDialogTitle className="text-xl font-bold text-white text-center">{t('contacts.addContactDialogTitle')}</AlertDialogTitle>
           <div className="w-12 h-1 bg-blue-300 dark:bg-blue-400 rounded-full mt-3 opacity-70"></div>
         </div>
         
         <div className="p-6">
           <AlertDialogDescription className="text-sm text-gray-600 dark:text-gray-300 text-center mb-6">
-            أدخل اسم المستخدم الذي تريد إضافته كجهة اتصال
+            {t('contacts.addContactDialogDescription')}
           </AlertDialogDescription>
 
           <div className="space-y-5">
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"> اسم المستخدم</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('contacts.usernameLabel')}</label>
               <div className="relative rounded-lg overflow-hidden shadow-sm focus-within:ring-2 focus-within:ring-blue-500 dark:focus-within:ring-blue-400 transition-all duration-200">
                 <Input
                   name="name"
                   value={contactData.name}
                   onChange={handleInputChange}
-                  placeholder="أدخل اسم المستخدم الذي تريد إضافته"
+                  placeholder={t('contacts.usernamePlaceholder')}
                   required
-                  className="w-full py-2 px-4 bg-white dark:bg-gray-800 border-0 focus-visible:ring-0 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                  className="w-full py-2 ps-10 pe-4 bg-white dark:bg-gray-800 border-0 focus-visible:ring-0 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
                 />
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
+                <User className="absolute start-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
               </div>
             </div>
             
@@ -196,7 +191,7 @@ export function AddContactDialog({
 
           <AlertDialogFooter className="mt-8 flex-row justify-center gap-4">
             <AlertDialogCancel className="bg-gray-100 hover:bg-gray-200 text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 rounded-lg border-0 transition-all duration-200 shadow-sm">
-              إلغاء
+              {t('common.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white px-6 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-2 font-medium"
@@ -204,11 +199,11 @@ export function AddContactDialog({
               disabled={isSubmitting}
             >
               {isSubmitting ? (
-                <>جاري الإضافة...</>
+                <>{t('common.adding')}</>
               ) : (
                 <>
                   <PlusCircle className="h-4 w-4" />
-                  <span>إضافة جهة الاتصال</span>
+                  <span>{t('contacts.addButton')}</span>
                 </>
               )}
             </AlertDialogAction>

@@ -9,9 +9,11 @@ import { Input } from '@/components/ui/input';
 import { User, Mail, Edit, LogOut } from 'lucide-react';
 import { supabase } from '@/services/supabase';
 import { toast } from '@/components/ui/toast';
+import { useTranslation } from 'react-i18next';
 
 export default function ProfilePage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [profile, setProfile] = useState({
@@ -26,7 +28,7 @@ export default function ProfilePage() {
         const { data: { user } } = await supabase.auth.getUser();
         
         if (!user) {
-          toast.info('الرجاء تسجيل الدخول أولاً');
+          toast.info(t('auth.loginRequired'));
           router.push('/login');
           return;
         }
@@ -45,14 +47,14 @@ export default function ProfilePage() {
         });
       } catch (error) {
         console.error('Error fetching profile:', error);
-        toast.error('حدث خطأ أثناء جلب بيانات الملف الشخصي');
+        toast.error(t('profile.fetchError'));
       } finally {
         setIsLoading(false);
       }
     };
     
     fetchProfile();
-  }, [router]);
+  }, [router, t]);
   
   const handleSaveProfile = async () => {
     try {
@@ -61,7 +63,7 @@ export default function ProfilePage() {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
-        toast.error('لم يتم العثور على المستخدم');
+        toast.error(t('profile.userNotFound'));
         return;
       }
       
@@ -73,11 +75,11 @@ export default function ProfilePage() {
       
       if (error) throw error;
       
-      toast.success('تم تحديث الملف الشخصي بنجاح');
+      toast.success(t('profile.updateSuccess'));
       setIsEditing(false);
     } catch (error) {
       console.error('Error updating profile:', error);
-      toast.error('حدث خطأ أثناء تحديث الملف الشخصي');
+      toast.error(t('profile.updateError'));
     } finally {
       setIsLoading(false);
     }
@@ -86,25 +88,25 @@ export default function ProfilePage() {
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
-      toast.info('تم تسجيل الخروج بنجاح');
+      toast.info(t('profile.logoutSuccess'));
       router.push('/login');
     } catch (error) {
       console.error('Error logging out:', error);
-      toast.error('حدث خطأ أثناء تسجيل الخروج');
+      toast.error(t('profile.logoutError'));
     }
   };
   
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-xl">جاري التحميل...</div>
+        <div className="animate-pulse text-xl">{t('common.loading')}</div>
       </div>
     );
   }
 
   return (
     <div className="p-4 pt-20 pb-20">
-      <Header title="الملف الشخصي" />
+      <Header title={t('profile.pageTitle')} />
       
       <div className="space-y-6 mt-4">
         <div className="flex flex-col items-center justify-center">
@@ -112,7 +114,7 @@ export default function ProfilePage() {
             <User className="h-16 w-16 text-blue-500 dark:text-blue-300" />
           </div>
           <h1 className="text-2xl font-bold mt-4">
-            {profile.name || 'المستخدم'}
+            {profile.name || t('profile.defaultName')}
           </h1>
           <p className="text-gray-500 dark:text-gray-400">
             {profile.username ? `@${profile.username}` : ''}
@@ -122,7 +124,7 @@ export default function ProfilePage() {
         <Card>
           <CardContent className="p-6 space-y-4">
             <h2 className="text-xl font-semibold flex items-center justify-between">
-              المعلومات الشخصية
+              {t('profile.personalInfoTitle')}
               <Button 
                 variant="ghost" 
                 size="icon"
@@ -134,7 +136,7 @@ export default function ProfilePage() {
             
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">الاسم</label>
+                <label className="text-sm font-medium">{t('profile.nameLabel')}</label>
                 {isEditing ? (
                   <Input 
                     value={profile.name}
@@ -143,13 +145,13 @@ export default function ProfilePage() {
                 ) : (
                   <div className="flex items-center p-2 bg-gray-50 dark:bg-gray-800 rounded-md">
                     <User className="h-4 w-4 text-gray-500 ml-2" />
-                    <span>{profile.name || '-'}</span>
+                    <span>{profile.name || t('profile.noDataPlaceholder')}</span>
                   </div>
                 )}
               </div>
               
               <div className="space-y-2">
-                <label className="text-sm font-medium">البريد الإلكتروني</label>
+                <label className="text-sm font-medium">{t('auth.emailLabel')}</label>
                 <div className="flex items-center p-2 bg-gray-50 dark:bg-gray-800 rounded-md">
                   <Mail className="h-4 w-4 text-gray-500 ml-2" />
                   <span>{profile.email}</span>
@@ -157,10 +159,10 @@ export default function ProfilePage() {
               </div>
               
               <div className="space-y-2">
-                <label className="text-sm font-medium">اسم المستخدم</label>
+                <label className="text-sm font-medium">{t('auth.usernameLabel')}</label>
                 <div className="flex items-center p-2 bg-gray-50 dark:bg-gray-800 rounded-md">
                   <User className="h-4 w-4 text-gray-500 ml-2" />
-                  <span>{profile.username || '-'}</span>
+                  <span>{profile.username || t('profile.noDataPlaceholder')}</span>
                 </div>
               </div>
               
@@ -170,7 +172,7 @@ export default function ProfilePage() {
                   onClick={handleSaveProfile}
                   disabled={isLoading}
                 >
-                  حفظ التغييرات
+                  {t('profile.saveChangesButton')}
                 </Button>
               )}
             </div>
@@ -184,7 +186,7 @@ export default function ProfilePage() {
             onClick={handleLogout}
           >
             <LogOut className="h-5 w-5 ml-2" />
-            تسجيل الخروج
+            {t('auth.logout')}
           </Button>
         </div>
       </div>

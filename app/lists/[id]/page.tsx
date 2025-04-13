@@ -15,6 +15,7 @@ import { useListMessagesRealtime } from '@/hooks/useRealtime';
 import React from 'react';
 import { cn } from '@/lib/utils';
 import imageCompression from 'browser-image-compression';
+import { useTranslation } from 'react-i18next';
 
 
 interface ListItem {
@@ -46,12 +47,10 @@ function ImagePreviewModal({
   isOpen: boolean; 
   onClose: () => void;
 }) {
-  // إضافة مرجع للنافذة المنبثقة للتعامل مع النقر خارجها
+  const { t } = useTranslation();
   const modalRef = useRef<HTMLDivElement>(null);
-  // إضافة متغير حالة لتتبع نسبة التكبير/التصغير
   const [scale, setScale] = useState(1);
 
-  // إغلاق النافذة المنبثقة عند الضغط على زر Escape
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -59,37 +58,32 @@ function ImagePreviewModal({
     
     if (isOpen) {
       window.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden'; // منع التمرير في الخلفية
+      document.body.style.overflow = 'hidden';
     }
     
     return () => {
       window.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = ''; // استعادة التمرير
+      document.body.style.overflow = '';
     };
   }, [isOpen, onClose]);
 
-  // تحسين دالة إغلاق النافذة المنبثقة عند النقر خارج الصورة
   const handleOutsideClick = (e: React.MouseEvent) => {
-    // إغلاق النافذة عند النقر على أي مكان خارج الصورة والأزرار
     if (
-      e.target === e.currentTarget ||  // النقر على الخلفية السوداء
+      e.target === e.currentTarget ||
       !(modalRef.current?.contains(e.target as Node))
     ) {
       onClose();
     }
   };
 
-  // دالة زيادة التكبير
   const zoomIn = () => {
-    setScale(prev => Math.min(prev + 0.25, 3)); // الحد الأقصى 3x
+    setScale(prev => Math.min(prev + 0.25, 3));
   };
 
-  // دالة تقليل التكبير
   const zoomOut = () => {
-    setScale(prev => Math.max(prev - 0.25, 0.5)); // الحد الأدنى 0.5x
+    setScale(prev => Math.max(prev - 0.25, 0.5));
   };
 
-  // دالة إعادة ضبط حجم الصورة
   const resetZoom = () => {
     setScale(1);
   };
@@ -104,40 +98,30 @@ function ImagePreviewModal({
       <div 
         className="absolute top-2 right-2 flex gap-1 z-10"
       >
-        {/* أزرار التكبير/التصغير */}
         <Button
-          onClick={(e) => {
-            e.stopPropagation(); // منع انتشار الحدث للعناصر الأب
-            zoomIn();
-          }}
+          onClick={(e) => { e.stopPropagation(); zoomIn(); }}
           size="sm"
           variant="outline"
           className="bg-white/20 hover:bg-white/30 text-white border-0 rounded-full h-8 w-8 p-0"
-          title="تكبير"
+          title={t('listDetails.zoomInTooltip')}
         >
           <span className="text-xl font-bold">+</span>
         </Button>
         <Button
-          onClick={(e) => {
-            e.stopPropagation(); // منع انتشار الحدث للعناصر الأب
-            zoomOut();
-          }}
+          onClick={(e) => { e.stopPropagation(); zoomOut(); }}
           size="sm"
           variant="outline"
           className="bg-white/20 hover:bg-white/30 text-white border-0 rounded-full h-8 w-8 p-0"
-          title="تصغير"
+          title={t('listDetails.zoomOutTooltip')}
         >
           <span className="text-xl font-bold">-</span>
         </Button>
         <Button
-          onClick={(e) => {
-            e.stopPropagation(); // منع انتشار الحدث للعناصر الأب
-            resetZoom();
-          }}
+          onClick={(e) => { e.stopPropagation(); resetZoom(); }}
           size="sm"
           variant="outline"
           className="bg-white/20 hover:bg-white/30 text-white border-0 rounded-full h-8 w-8 p-0"
-          title="إعادة ضبط"
+          title={t('listDetails.resetZoomTooltip')}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
@@ -147,23 +131,19 @@ function ImagePreviewModal({
           </svg>
         </Button>
         <Button
-          onClick={(e) => {
-            e.stopPropagation(); // منع انتشار الحدث للعناصر الأب
-            onClose();
-          }}
+          onClick={(e) => { e.stopPropagation(); onClose(); }}
           size="sm"
           variant="outline"
           className="bg-white/20 hover:bg-white/30 text-white border-0 rounded-full h-8 w-8 p-0"
-          title="إغلاق"
+          title={t('common.close')}
         >
           <X className="h-5 w-5" />
         </Button>
       </div>
       
-      {/* المعلومات أسفل الصورة */}
       <div 
         className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-black/50 px-3 py-1 rounded-full text-white text-sm z-10"
-        onClick={(e) => e.stopPropagation()} // منع انتشار الحدث للعناصر الأب
+        onClick={(e) => e.stopPropagation()}
       >
         {Math.round(scale * 100)}%
       </div>
@@ -174,19 +154,14 @@ function ImagePreviewModal({
       >
         <div 
           className="bg-transparent transition-all duration-300 ease-in-out max-w-[90%] max-h-[90%] overflow-hidden"
-          style={{ 
-            boxShadow: '0 0 20px rgba(0, 0, 0, 0.3)'
-          }}
-          onClick={(e) => e.stopPropagation()} // منع انتشار الحدث للعناصر الأب عند النقر على الصورة نفسها
+          style={{ boxShadow: '0 0 20px rgba(0, 0, 0, 0.3)' }}
+          onClick={(e) => e.stopPropagation()}
         >
           <img 
             src={imageUrl} 
-            alt="صورة معروضة" 
+            alt={t('listDetails.displayedImageAlt')}
             className="w-auto h-auto max-w-full max-h-[85vh] object-contain transition-transform duration-300 ease-in-out"
-            style={{ 
-              transform: `scale(${scale})`,
-              transformOrigin: 'center center'
-            }}
+            style={{ transform: `scale(${scale})`, transformOrigin: 'center center' }}
           />
         </div>
       </div>
@@ -198,6 +173,7 @@ export default function ListDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const listId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : '';
+  const { t, i18n } = useTranslation();
   
   const [isLoading, setIsLoading] = useState(true);
   const [listDetails, setListDetails] = useState<ListDetails | null>(null);
@@ -212,7 +188,7 @@ export default function ListDetailsPage() {
   const loadListDetails = useCallback(async () => {
     try {
       if (!listId) {
-        toast.error('معرّف القائمة غير صالح');
+        toast.error(t('listDetails.invalidId'));
         router.push('/lists');
         return;
       }
@@ -238,7 +214,7 @@ export default function ListDetailsPage() {
       }
       
       if (!list) {
-        toast.error('القائمة غير موجودة');
+        toast.error(t('listDetails.notFound'));
         router.push('/lists');
         return;
       }
@@ -273,15 +249,15 @@ export default function ListDetailsPage() {
       setIsLoading(false);
     } catch (error) {
       console.error('Error loading list details:', error);
-      toast.error('حدث خطأ أثناء تحميل تفاصيل القائمة');
+      toast.error(t('listDetails.loadError'));
       setIsLoading(false);
     }
-  }, [listId, router]);
+  }, [listId, router, t]);
   
   useEffect(() => {
     const checkAuthAndLoadList = async () => {
       if (!listId) {
-        toast.error('معرّف القائمة غير صالح', 2000);
+        toast.error(t('listDetails.invalidId'), 2000);
         router.push('/lists');
         return;
       }
@@ -291,7 +267,7 @@ export default function ListDetailsPage() {
         const { data: { user } } = await supabase.auth.getUser();
         
         if (!user) {
-          toast.info('الرجاء تسجيل الدخول أولاً');
+          toast.info(t('auth.loginRequired'));
           router.push('/login');
           return;
         }
@@ -321,7 +297,7 @@ export default function ListDetailsPage() {
         
         if (!username) {
           console.error('Username not found for user');
-          toast.error('حدث خطأ: لم يتم العثور على اسم المستخدم');
+          toast.error(t('listDetails.usernameNotFound'));
           router.push('/profile');
           return;
         }
@@ -333,7 +309,7 @@ export default function ListDetailsPage() {
         
       } catch (error) {
         console.error('Error checking auth:', error);
-        toast.error('حدث خطأ أثناء التحقق من الحساب');
+        toast.error(t('auth.authCheckError'));
         setIsLoading(false);
       }
     };
@@ -343,26 +319,26 @@ export default function ListDetailsPage() {
     checkAuthAndLoadList();
     
     // --- إعداد اشتراك Realtime --- 
-      if (!listId) return;
-      
+    if (!listId) return;
+    
     console.log(`إعداد اشتراك الوقت الفعلي لقائمة: ${listId}`);
-      
-        const channel = supabase
-          .channel(`list-updates-${listId}`)
-          .on(
-            'postgres_changes',
-            {
+    
+    const channel = supabase
+      .channel(`list-updates-${listId}`)
+      .on(
+        'postgres_changes',
+        {
           event: '*', // Listen to INSERT, UPDATE, DELETE for items
-              schema: 'public',
-              table: 'items',
-              filter: `list_id=eq.${listId}`
-            },
-            (payload) => {
+          schema: 'public',
+          table: 'items',
+          filter: `list_id=eq.${listId}`
+        },
+        (payload) => {
           console.log(`تحديث Realtime لـ items في القائمة ${listId}:`, payload);
-              
-                setListDetails((prevDetails) => {
-                  if (!prevDetails) return prevDetails;
-                  
+          
+          setListDetails((prevDetails) => {
+            if (!prevDetails) return prevDetails;
+            
             let updatedItems = [...prevDetails.items];
             let statusChanged = false;
             let newStatus = prevDetails.status;
@@ -371,7 +347,7 @@ export default function ListDetailsPage() {
               const newItem = payload.new as ListItem;
               if (!updatedItems.some(item => item.id === newItem.id)) {
                 updatedItems.push(newItem);
-                  toast.info(`تمت إضافة منتج جديد: ${newItem.name}`, 1500);
+                toast.info(`تمت إضافة منتج جديد: ${newItem.name}`, 1500);
               }
             } else if (payload.eventType === 'UPDATE') {
               const updatedItem = payload.new as ListItem;
@@ -390,12 +366,12 @@ export default function ListDetailsPage() {
               const anyPurchased = updatedItems.some(item => item.purchased);
 
               if (allPurchased) {
-                    newStatus = 'completed';
-                  } else if (anyPurchased) {
+                newStatus = 'completed';
+              } else if (anyPurchased) {
                 newStatus = 'opened'; // Or 'in_progress', ensure consistency later
-                  } else {
-                    newStatus = 'new';
-                  }
+              } else {
+                newStatus = 'new';
+              }
             } else {
               // If no items left, maybe set status to 'new' or keep as is?
               newStatus = 'new'; // Or prevDetails.status
@@ -405,23 +381,23 @@ export default function ListDetailsPage() {
 
             // IMPORTANT: DO NOT update the database from here.
             // Only update the local state.
-                  return {
-                    ...prevDetails,
+            return {
+              ...prevDetails,
               items: updatedItems,
               status: newStatus // Update local status
-                  };
-                });
-            }
-          )
-          .on(
-            'postgres_changes',
-            {
+            };
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
           event: 'UPDATE', // Only listen to UPDATE for lists
-              schema: 'public',
-              table: 'lists',
-              filter: `id=eq.${listId}`
-            },
-            (payload) => {
+          schema: 'public',
+          table: 'lists',
+          filter: `id=eq.${listId}`
+        },
+        (payload) => {
           console.log(`تحديث Realtime لـ lists للقائمة ${listId}:`, payload);
           const updatedList = payload.new as ListDetails;
           setListDetails(prevDetails => {
@@ -430,12 +406,12 @@ export default function ListDetailsPage() {
             }
             // Show toast for status change initiated by the *other* user
             toast.info(`تم تحديث حالة القائمة إلى: ${updatedList.status}`); 
-                  return {
-                    ...prevDetails,
+            return {
+              ...prevDetails,
               status: updatedList.status, 
               updated_at: updatedList.updated_at 
-                  };
-                });
+            };
+          });
         }
       )
       .subscribe((status, err) => {
@@ -443,12 +419,12 @@ export default function ListDetailsPage() {
           console.log(`تم الاشتراك بنجاح في قناة الوقت الفعلي: list-updates-${listId}`);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.error(`خطأ في قناة الوقت الفعلي ${listId}:`, status, err);
-          toast.error('حدث خطأ في الاتصال بالتحديثات المباشرة');
+          toast.error(t('listDetails.realtimeError'));
         }
       });
 
     // --- Cleanup on unmount --- 
-        return () => {
+    return () => {
       console.log(`إلغاء اشتراك الوقت الفعلي للقائمة: ${listId}`);
       if (channel) {
         supabase.removeChannel(channel).catch(error => {
@@ -457,7 +433,7 @@ export default function ListDetailsPage() {
       }
       clearAllToasts();
     };
-  }, [listId, router, currentUser, loadListDetails]); // Added dependencies
+  }, [listId, router, currentUser, loadListDetails, t, i18n]);
   
   // تبديل حالة الشراء للعنصر
   const toggleItemPurchase = async (itemId: string, purchased: boolean) => {
@@ -493,7 +469,7 @@ export default function ListDetailsPage() {
 
       if (itemUpdateError) {
         console.error('Error updating item:', itemUpdateError);
-        toast.error(`حدث خطأ أثناء تحديث العنصر: ${itemUpdateError.message || 'خطأ غير معروف'}`, 2000);
+        toast.error(t('listDetails.itemUpdateError', { errorMessage: itemUpdateError.message || t('common.error') }), 2000);
         setIsUpdating(false);
         return;
       }
@@ -505,7 +481,7 @@ export default function ListDetailsPage() {
             : item
       );
       setListDetails(prev => prev ? { ...prev, items: updatedItemsLocally } : null);
-      toast.success(purchased ? 'تم تحديث حالة العنصر إلى "تم شراؤه"' : 'تم تحديث حالة العنصر إلى "لم يتم شراؤه"');
+      toast.success(purchased ? t('listDetails.itemMarkedPurchased') : t('listDetails.itemMarkedNotPurchased'));
       
       // --- 4. Calculate new list status and update if changed --- 
       const currentListStatus = listDetails.status;
@@ -532,7 +508,7 @@ export default function ListDetailsPage() {
         if (listStatusUpdateError) {
           console.error('Error updating list status in DB:', listStatusUpdateError);
           // Don't return here - we still want to update the UI and finish the toggle function
-          toast.error(`حدث خطأ أثناء تحديث حالة القائمة: ${listStatusUpdateError.message}`, 1500);
+          toast.error(t('listDetails.listStatusUpdateError', { errorMessage: listStatusUpdateError.message }), 1500);
         } else {
            // Update local state for status as well (redundant if realtime works, but safe)
            setListDetails(prev => prev ? { ...prev, status: newListStatus } : null);
@@ -542,8 +518,8 @@ export default function ListDetailsPage() {
 
     } catch (error) {
       console.error('Error in toggleItemPurchase:', error);
-      const errorMessage = error instanceof Error ? error.message : 'حدث خطأ غير معروف';
-      toast.error(`حدث خطأ أثناء تحديث العنصر أو حالة القائمة: ${errorMessage}`);
+      const errorMessage = error instanceof Error ? error.message : t('common.error');
+      toast.error(t('listDetails.toggleItemError', { errorMessage }));
       // Consider reverting local state update on error if needed
     } finally {
       setIsUpdating(false);
@@ -587,41 +563,13 @@ export default function ListDetailsPage() {
         items: [...listDetails.items, newItem]
       });
       
-      // --- إنشاء إشعار لمستلم القائمة --- 
-      // Check if the actor is not the recipient before sending notification
-      // REMOVED: Direct notification creation from frontend
-      // if (actorUsername !== listDetails.recipient_username) {
-      //   const notificationRecipientUsername = listDetails.recipient_username;
-      //   
-      //   // Fetch recipient user data
-      //   const { data: recipientData, error: userError } = await supabase
-      //     .from('users') 
-      //     .select('id, username')
-      //     .eq('username', notificationRecipientUsername)
-      //     .maybeSingle();
-      // 
-      //   if (userError) {
-      //     console.error('Error finding notification recipient user for new item:', userError);
-      //   } else if (!recipientData) {
-      //     console.error(`Notification recipient user "${notificationRecipientUsername}" not found for new item.`);
-      //   } else {
-      //     // Only send if recipient found
-      //     createNotification(
-      //       recipientData, // Pass the user object
-      //       `${actorUsername} أضاف "${newItemName.trim()}" إلى قائمة التسوق`,
-      //       'NEW_ITEM', // Use a specific type
-      //       newItem.id,
-      //       listId
-      //     );
-      //   }
-      // }
-      // --- نهاية إنشاء الإشعار ---
+      // --- إنشاء إشعار لمستلم القائمة (REMOVED) --- 
       
       setNewItemName('');
-      toast.success('تمت إضافة العنصر بنجاح');
+      toast.success(t('listDetails.itemAddedSuccess'));
     } catch (error) {
       console.error('Error adding item:', error);
-      toast.error('حدث خطأ أثناء إضافة العنصر');
+      toast.error(t('listDetails.addItemError'));
     } finally {
       setIsAddingItem(false);
     }
@@ -642,7 +590,7 @@ export default function ListDetailsPage() {
       
       if (error) {
         console.error('Error deleting item:', error);
-        toast.error('حدث خطأ أثناء حذف المنتج');
+        toast.error(t('listDetails.deleteItemError'));
         return;
       }
       
@@ -656,10 +604,10 @@ export default function ListDetailsPage() {
         };
       });
       
-      toast.success(`تم حذف ${itemName} من القائمة`);
+      toast.success(t('listDetails.itemDeletedSuccess', { itemName }));
     } catch (error) {
       console.error('Error deleting item:', error);
-      toast.error('حدث خطأ أثناء حذف المنتج');
+      toast.error(t('listDetails.deleteItemError'));
     } finally {
       setIsUpdating(false);
     }
@@ -680,7 +628,7 @@ export default function ListDetailsPage() {
       
       if (itemsError) {
         console.error('Error deleting list items:', itemsError);
-        toast.error('حدث خطأ أثناء حذف عناصر القائمة');
+        toast.error(t('listDetails.deleteListItemsError'));
         setIsDeleting(false);
         return;
       }
@@ -693,18 +641,18 @@ export default function ListDetailsPage() {
       
       if (listError) {
         console.error('Error deleting list:', listError);
-        toast.error('حدث خطأ أثناء حذف القائمة');
+        toast.error(t('listDetails.deleteListError'));
         setIsDeleting(false);
         return;
       }
       
-      toast.success('تم حذف القائمة بنجاح');
+      toast.success(t('listDetails.listDeletedSuccess'));
       
       // العودة إلى صفحة القوائم
       router.push('/lists');
     } catch (error) {
       console.error('Error during list deletion:', error);
-      toast.error('حدث خطأ غير متوقع أثناء حذف القائمة');
+      toast.error(t('listDetails.deleteListUnexpectedError'));
       setIsDeleting(false);
     }
   };
@@ -717,7 +665,7 @@ export default function ListDetailsPage() {
           <div className="bg-blue-100 dark:bg-blue-900 p-4 rounded-full">
             <ShoppingCart className="h-10 w-10 text-blue-500 dark:text-blue-300" />
           </div>
-          <span className="text-xl">جاري التحميل...</span>
+          <span className="text-xl">{t('common.loading')}</span>
         </div>
       </div>
     );
@@ -727,22 +675,22 @@ export default function ListDetailsPage() {
   if (!listDetails) {
     return (
       <div className="p-4 pt-0">
-        <Header title="تفاصيل القائمة" showBackButton />
+        <Header title={t('listDetails.pageTitleFallback')} showBackButton />
         
         <div className="mt-8 flex flex-col items-center justify-center py-10 px-4 bg-gray-50 dark:bg-gray-800 rounded-xl text-center">
           <ShoppingCart className="h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" />
           <h3 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-2">
-            القائمة غير موجودة
+            {t('listDetails.notFoundTitle')}
           </h3>
           <p className="text-gray-500 dark:text-gray-400 mb-4">
-            لم نتمكن من العثور على القائمة المطلوبة
+            {t('listDetails.notFoundDescription')}
           </p>
           <Button 
             onClick={goBack}
             className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
-            <span>العودة إلى القوائم</span>
+            <span>{t('listDetails.backToLists')}</span>
           </Button>
         </div>
       </div>
@@ -760,21 +708,21 @@ export default function ListDetailsPage() {
         return (
           <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 flex items-center gap-1">
             <Clock className="h-3 w-3" />
-            <span>جديدة</span>
+            <span>{t('lists.statusNew')}</span>
           </Badge>
         );
       case 'opened':
         return (
           <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300 flex items-center gap-1">
             <Package className="h-3 w-3" />
-            <span>قيد التنفيذ</span>
+            <span>{t('lists.statusOpened')}</span>
           </Badge>
         );
       case 'completed':
         return (
           <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 flex items-center gap-1">
             <CheckCircle className="h-3 w-3" />
-            <span>مكتملة</span>
+            <span>{t('lists.statusCompleted')}</span>
           </Badge>
         );
       default:
@@ -841,35 +789,44 @@ export default function ListDetailsPage() {
         console.error(`Notification recipient user "${recipientUsername}" not found for list status update.`);
       } else {
         // Only send if recipient found
-      let message = '';
-      switch (newStatus) {
-        case 'completed':
-            message = `قام ${actorUsername} بإكمال قائمة التسوق`;
-          break;
-          case 'in_progress': // Assuming 'opened' state means 'in_progress'
-            message = `بدأ ${actorUsername} العمل على قائمة التسوق`;
-          break;
-        case 'new':
-             message = `قام ${actorUsername} بإعادة تعيين حالة قائمة التسوق`;
-          break;
-        default:
-            message = `قام ${actorUsername} بتحديث حالة القائمة إلى ${newStatus}`;
-      }
-      
-      createNotification(
-          recipientData, // Pass the user object
-        message,
-          'LIST_STATUS', // Use a specific type
-        null,
-        listId
-      );
+        let messageKey = ''; // Use key instead of hardcoded message
+        let statusText = newStatus; // Fallback status text
+
+        switch (newStatus) {
+          case 'completed':
+              messageKey = 'notifications.listStatusCompletedBy';
+              statusText = t('lists.statusCompleted'); // Get localized status name
+            break;
+          case 'opened': 
+              messageKey = 'notifications.listStatusOpenedBy';
+              statusText = t('lists.statusOpened'); // Get localized status name
+            break;
+          case 'new':
+              messageKey = 'notifications.listStatusResetBy';
+              statusText = t('lists.statusNew'); // Get localized status name
+            break;
+          default:
+              messageKey = 'notifications.listStatusUpdatedBy';
+              // statusText remains newStatus for unknown statuses
+        }
+        
+        // Generate the translated message
+        const notificationMessage = t(messageKey, { actor: actorUsername, status: statusText });
+
+        createNotification(
+            recipientData, // Pass the user object
+          notificationMessage, // Pass the translated message
+            'LIST_STATUS', // Use a specific type
+          null,
+          listId
+        );
       }
       // --- نهاية إنشاء الإشعار ---
       
-      toast.success('تم تحديث حالة القائمة بنجاح');
+      toast.success(t('listDetails.listStatusUpdatedSuccess'));
     } catch (error) {
       console.error('Error updating list status:', error);
-      toast.error('حدث خطأ أثناء تحديث حالة القائمة');
+      toast.error(t('listDetails.updateListStatusError'));
     } finally {
       setIsUpdating(false);
     }
@@ -878,7 +835,7 @@ export default function ListDetailsPage() {
   return (
     <div className="container max-w-3xl mx-auto px-4 pb-20">
         <Header 
-          title={isLoading ? 'جاري التحميل...' : `قائمة ${listDetails?.creator_username === currentUser ? 'مرسلة' : 'مستلمة'}`} 
+          title={isLoading ? t('common.loading') : (listDetails?.creator_username === currentUser ? t('listDetails.titleSent') : t('listDetails.titleReceived'))} 
           showBackButton
           extras={
             <div className="flex items-center gap-2">
@@ -889,7 +846,7 @@ export default function ListDetailsPage() {
                 }}
                 className="flex items-center justify-center p-2 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
                 disabled={isRefreshing}
-                aria-label="تحديث"
+                aria-label={t('listDetails.refreshAriaLabel')}
               >
                 <RefreshCw className={`h-5 w-5 text-blue-600 dark:text-blue-400 ${isRefreshing ? 'animate-spin' : ''}`} />
               </button>
@@ -899,7 +856,7 @@ export default function ListDetailsPage() {
                 <button 
                   onClick={() => setShowDeleteConfirm(true)}
                   className="flex items-center justify-center p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                  aria-label="حذف القائمة"
+                  aria-label={t('listDetails.deleteListAriaLabel')}
                 >
                   <Trash2 className="h-5 w-5 text-red-500 dark:text-red-400" />
                 </button>
@@ -915,9 +872,9 @@ export default function ListDetailsPage() {
             <div className="flex items-start gap-3">
               <AlertCircle className="h-5 w-5 text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <h3 className="font-medium text-red-800 dark:text-red-300">تأكيد حذف القائمة</h3>
+                <h3 className="font-medium text-red-800 dark:text-red-300">{t('listDetails.deleteConfirmTitle')}</h3>
                 <p className="text-sm text-red-700 dark:text-red-400 mt-1 mb-3">
-                  هل أنت متأكد من رغبتك في حذف هذه القائمة؟ سيتم حذف القائمة وجميع العناصر المرتبطة بها نهائياً ولن تظهر للمستلم بعد ذلك.
+                  {t('listDetails.deleteConfirmDescription')}
                 </p>
                 <div className="flex gap-2">
                   <Button 
@@ -925,7 +882,7 @@ export default function ListDetailsPage() {
                     disabled={isDeleting}
                     className="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800"
                   >
-                    {isDeleting ? 'جاري الحذف...' : 'نعم، حذف القائمة'}
+                    {isDeleting ? t('listDetails.deleting') : t('listDetails.confirmDeleteButton')}
                   </Button>
                   <Button 
                     onClick={() => setShowDeleteConfirm(false)}
@@ -933,7 +890,7 @@ export default function ListDetailsPage() {
                     variant="outline" 
                     className="border-red-300 text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-400"
                   >
-                    إلغاء
+                    {t('common.cancel')}
                   </Button>
                 </div>
               </div>
@@ -948,7 +905,7 @@ export default function ListDetailsPage() {
                 <ShoppingCart className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
               <h2 className="text-xl font-semibold dark:text-white">
-                تفاصيل القائمة
+                {t('listDetails.sectionTitle')}
               </h2>
             </div>
           </div>
@@ -961,15 +918,15 @@ export default function ListDetailsPage() {
                     <ShoppingCart className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     <h2 className="text-lg font-medium dark:text-white">
                       {isCreator 
-                        ? `قائمة إلى ${listDetails.recipient_username}`
-                        : `قائمة من ${listDetails.creator_username}`
+                        ? t('listDetails.listTo', { recipient: listDetails.recipient_username })
+                        : t('listDetails.listFrom', { creator: listDetails.creator_username })
                       }
                     </h2>
                     {renderStatusBadge(listDetails.status)}
                   </div>
                   
                   <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    {new Date(listDetails.created_at).toLocaleDateString('en-US', {
+                    {new Date(listDetails.created_at).toLocaleDateString(i18n.language, {
                       weekday: 'long',
                       year: 'numeric',
                       month: 'long',
@@ -982,7 +939,7 @@ export default function ListDetailsPage() {
               {/* شريط التقدم */}
               <div className="mb-6">
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600 dark:text-gray-300">تقدم القائمة</span>
+                  <span className="text-gray-600 dark:text-gray-300">{t('listDetails.progressLabel')}</span>
                   <span className="font-medium">{completionPercentage}%</span>
                 </div>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
@@ -995,14 +952,14 @@ export default function ListDetailsPage() {
               
               {/* قائمة العناصر */}
               <div className="space-y-2">
-                <h3 className="font-medium dark:text-white mb-3">قائمة المنتجات ({listDetails.items.length})</h3>
+                <h3 className="font-medium dark:text-white mb-3">{t('listDetails.itemsTitle', { count: listDetails.items.length })}</h3>
                 
                 {/* نموذج إضافة منتج جديد - يظهر فقط للمرسل */}
                 {isCreator && (
                   <form onSubmit={addItemToList} className="mb-4 flex gap-2">
                     <Input
                       type="text"
-                      placeholder="اسم المنتج الجديد"
+                      placeholder={t('listDetails.newItemPlaceholder')}
                       value={newItemName}
                       onChange={(e) => setNewItemName(e.target.value)}
                       disabled={isAddingItem}
@@ -1014,7 +971,7 @@ export default function ListDetailsPage() {
                       className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
                     >
                       <Plus className="h-4 w-4 mr-1" />
-                      <span>إضافة</span>
+                      <span>{t('common.add')}</span>
                     </Button>
                   </form>
                 )}
@@ -1042,7 +999,7 @@ export default function ListDetailsPage() {
                                   ? 'bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800' 
                                   : 'border-gray-300 dark:border-gray-600'
                               } ${!isRecipient ? 'cursor-not-allowed opacity-60' : ''}`}
-                              title={isRecipient ? "انقر لتبديل حالة الشراء" : "فقط المستلم يمكنه تحديد حالة الشراء"}
+                              title={isRecipient ? t('listDetails.togglePurchaseTooltip') : t('listDetails.togglePurchaseDisabledTooltip')}
                             >
                               <CheckCircle className={`h-4 w-4 ${item.purchased ? 'text-white' : 'text-gray-400 dark:text-gray-500'}`} />
                             </Button>
@@ -1053,12 +1010,14 @@ export default function ListDetailsPage() {
                               </span>
                               {item.purchased && item.purchased_at && (
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                  تم الشراء: {new Date(item.purchased_at).toLocaleString('en-US', {
-                                    year: 'numeric',
-                                    month: 'numeric',
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
+                                  {t('listDetails.purchasedOn', {
+                                    date: new Date(item.purchased_at).toLocaleString(i18n.language, {
+                                      year: 'numeric',
+                                      month: 'numeric',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })
                                   })}
                                 </p>
                               )}
@@ -1083,7 +1042,7 @@ export default function ListDetailsPage() {
                   </ul>
                 ) : (
                   <div className="text-center py-8 px-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <p className="text-gray-500 dark:text-gray-400">لا توجد عناصر في هذه القائمة</p>
+                    <p className="text-gray-500 dark:text-gray-400">{t('listDetails.noItems')}</p>
                   </div>
                 )}
               </div>
@@ -1101,6 +1060,7 @@ export default function ListDetailsPage() {
 
 // --- تعريف المكون الجديد --- 
 function MessageSection({ listId, currentUser }: { listId: string; currentUser: string }) {
+  const { t, i18n } = useTranslation();
   const [newMessage, setNewMessage] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const { messages, isLoading: isLoadingMessages } = useListMessagesRealtime(listId);
@@ -1178,7 +1138,7 @@ function MessageSection({ listId, currentUser }: { listId: string; currentUser: 
     
     const totalImages = selectedImages.length + fileArray.length;
     if (totalImages > 5) {
-      toast.error('يمكنك إرسال 5 صور كحد أقصى في المرة الواحدة');
+      toast.error(t('listDetails.maxImagesError'));
       fileArray.splice(0, 5 - selectedImages.length);
     }
 
@@ -1269,7 +1229,7 @@ function MessageSection({ listId, currentUser }: { listId: string; currentUser: 
         try {
           const compressPromises = selectedImages.map(image => compressImage(image));
           
-          toast.info('جاري ضغط الصور...', 3000);
+          toast.info(t('listDetails.compressingImages'), 3000);
           const compressedImages = await Promise.all(compressPromises);
           
           const totalImages = compressedImages.length;
@@ -1312,7 +1272,7 @@ function MessageSection({ listId, currentUser }: { listId: string; currentUser: 
           
         } catch (imageError) {
           console.error('Error in image upload process:', imageError);
-          toast.error('حدث خطأ أثناء رفع الصور');
+          toast.error(t('listDetails.imageUploadError'));
           setIsUploadingImage(false);
           setIsSendingMessage(false);
         return;
@@ -1332,7 +1292,7 @@ function MessageSection({ listId, currentUser }: { listId: string; currentUser: 
 
       if (imageUrls.length > 0) {
         try {
-          const firstImageText = messageText || (captionText ? captionText : 'صورة');
+          const firstImageText = messageText || (captionText ? captionText : t('listDetails.defaultImageText'));
           
           const { error: firstInsertError } = await supabase
             .from('messages')
@@ -1355,7 +1315,7 @@ function MessageSection({ listId, currentUser }: { listId: string; currentUser: 
                 .insert({ 
                   list_id: listId, 
                   sender_username: currentUser, 
-                  text: 'صورة',
+                  text: t('listDetails.defaultImageText'),
                   image_url: url
                 });
             });
@@ -1391,7 +1351,7 @@ function MessageSection({ listId, currentUser }: { listId: string; currentUser: 
 
     } catch (error: any) {
       console.error('Error sending message:', error);
-      toast.error('حدث خطأ أثناء إرسال الرسالة');
+      toast.error(t('listDetails.sendMessageError'));
       setNewMessage(messageText);
     } finally {
       setIsSendingMessage(false);
@@ -1411,7 +1371,7 @@ function MessageSection({ listId, currentUser }: { listId: string; currentUser: 
     <Card className="mt-4 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 overflow-hidden">
       <CardContent className="p-4">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">الرسائل</h3>
+          <h3 className="text-lg font-semibold">{t('listDetails.messagesTitle')}</h3>
         </div>
 
         <div
@@ -1419,35 +1379,27 @@ function MessageSection({ listId, currentUser }: { listId: string; currentUser: 
           className="rounded-md p-2 mb-4 max-h-[300px] overflow-y-auto scroll-smooth"
         >
           {isLoadingMessages ? (
-            <p className="text-center py-4 text-gray-500 dark:text-gray-400">جاري تحميل الرسائل...</p>
+            <p className="text-center py-4 text-gray-500 dark:text-gray-400">{t('listDetails.loadingMessages')}</p>
           ) : messages.length === 0 ? (
-            <p className="text-center py-4 text-gray-500 dark:text-gray-400">لا توجد رسائل</p>
+            <p className="text-center py-4 text-gray-500 dark:text-gray-400">{t('listDetails.noMessages')}</p>
           ) : (
             <div className="space-y-3">
               {messages.map((message) => (
                 <div
                   key={message.id}
-                  className={`flex flex-col ${
-                    message.sender_username === currentUser
-                      ? 'ml-auto items-end'
-                      : 'mr-auto items-start'
-                  }`}
+                  className={`flex flex-col ${ message.sender_username === currentUser ? 'ml-auto items-end' : 'mr-auto items-start' }`}
                 >
                   <div
-                    className={`p-3 rounded-lg max-w-[75%] ${
-                      message.sender_username === currentUser
-                        ? 'bg-blue-500 dark:bg-blue-600 text-white rounded-br-none'
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-none'
-                    }`}
+                    className={`p-3 rounded-lg max-w-[75%] ${ message.sender_username === currentUser ? 'bg-blue-500 dark:bg-blue-600 text-white rounded-br-none' : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-none' }`}
                   >
                     <div className="text-xs opacity-80 mb-1">
-                      {message.sender_username === currentUser ? 'أنت' : message.sender_username}
+                      {message.sender_username === currentUser ? t('listDetails.messageSenderYou') : message.sender_username}
                     </div>
                     {message.image_url && (
                       <div className="mb-2">
                         <img 
                           src={message.image_url} 
-                          alt="صورة مرفقة" 
+                          alt={t('listDetails.attachedImageAlt')}
                           className="rounded max-w-full w-auto h-auto cursor-pointer hover:opacity-90 transition-opacity object-contain max-h-[200px]" 
                           onClick={() => handleOpenImagePreview(message.image_url as string)}
                         />
@@ -1456,7 +1408,7 @@ function MessageSection({ listId, currentUser }: { listId: string; currentUser: 
                     {message.text && <p className="text-sm break-words">{message.text}</p>}
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 px-1 ${message.sender_username === currentUser ? 'text-right' : 'text-left'}">
-                    {new Date(message.created_at).toLocaleString('ar-SA', {
+                    {new Date(message.created_at).toLocaleString(i18n.language, {
                       hour: '2-digit',
                       minute: '2-digit'
                     })}
@@ -1472,24 +1424,24 @@ function MessageSection({ listId, currentUser }: { listId: string; currentUser: 
           <div className="mb-4 bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
             <div className="flex flex-col gap-3">
               <div className="flex justify-between items-center">
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">الصور المختارة ({imagePreviewUrls.length})</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('listDetails.selectedImagesTitle', { count: imagePreviewUrls.length })}</p>
                 <Button
                   onClick={handleCancelAllImages}
                   size="sm"
                   variant="ghost"
                   className="text-red-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/20 p-1 h-auto"
                 >
-                  إلغاء الكل
+                  {t('listDetails.cancelAllImages')}
                 </Button>
               </div>
               
               <div className="mb-2">
-                <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">إضافة تعليق على الصور:</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t('listDetails.addImageCaptionLabel')}</p>
                 <input 
                   type="text"
                   value={imageCaption}
                   onChange={(e) => setImageCaption(e.target.value)}
-                  placeholder="اكتب تعليقًا للصور (اختياري)..."
+                  placeholder={t('listDetails.imageCaptionPlaceholder')}
                   className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 />
               </div>
@@ -1499,13 +1451,13 @@ function MessageSection({ listId, currentUser }: { listId: string; currentUser: 
                   <div className="flex justify-between text-xs mb-1">
                     {compressionProgress > 0 ? (
                       <>
-                        <span>جاري ضغط الصور...</span>
+                        <span>{t('listDetails.compressingImages')}</span>
                         <span>{Math.round(compressionProgress)}%</span>
                       </>
                     ) : uploadProgress > 0 ? (
                       <>
-                        <span>جاري رفع الصور...</span>
-                        <span>{uploadedCount}/{selectedImages.length} ({Math.round(uploadProgress)}%)</span>
+                        <span>{t('listDetails.uploadingImages')}</span>
+                        <span>{t('listDetails.uploadProgress', { uploadedCount: uploadedCount, totalImages: selectedImages.length, percent: Math.round(uploadProgress) })}</span>
                       </>
                     ) : null}
                   </div>
@@ -1523,7 +1475,7 @@ function MessageSection({ listId, currentUser }: { listId: string; currentUser: 
                   <div key={index} className="relative inline-block">
                     <img 
                       src={previewUrl} 
-                      alt={`معاينة الصورة ${index + 1}`} 
+                      alt={t('listDetails.imagePreviewAlt', { index: index + 1 })}
                       className="h-20 w-auto rounded border border-gray-300 dark:border-gray-600" 
                     />
                     <button
@@ -1546,7 +1498,7 @@ function MessageSection({ listId, currentUser }: { listId: string; currentUser: 
             disabled={isSendingMessage || isUploadingImage}
             variant="ghost"
             className="p-2 h-10 flex items-center justify-center text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-md"
-            title="اختيار من المعرض"
+            title={t('listDetails.openGalleryTooltip')}
           >
             <Image className="h-5 w-5" />
           </Button>
@@ -1557,7 +1509,7 @@ function MessageSection({ listId, currentUser }: { listId: string; currentUser: 
             disabled={isSendingMessage || isUploadingImage}
             variant="ghost"
             className="p-2 h-10 flex items-center justify-center text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-md"
-            title="التقاط صورة"
+            title={t('listDetails.capturePhotoTooltip')}
           >
             <Camera className="h-5 w-5" />
           </Button>
@@ -1575,7 +1527,7 @@ function MessageSection({ listId, currentUser }: { listId: string; currentUser: 
             ref={inputRef}
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="اكتب رسالتك هنا..."
+            placeholder={t('listDetails.messageInputPlaceholder')}
             disabled={isSendingMessage || isUploadingImage}
             className={cn(
                "flex-1 file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input flex h-10 w-full min-w-0 rounded-md border bg-transparent px-3 py-2 text-base shadow-sm transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",

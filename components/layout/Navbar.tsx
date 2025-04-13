@@ -8,18 +8,27 @@ import {
   User,
   ShoppingCart
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
-const navItems = [
-  { name: 'عربة التسوق', href: '/home', icon: HomeIcon },
-  { name: 'القوائم', href: '/lists', icon: ShoppingCart },
-  { name: 'الأشخاص', href: '/contacts', icon: Users },
-  { name: 'الملف الشخصي', href: '/profile', icon: User },
+import type { LucideIcon } from 'lucide-react';
+
+interface NavItem {
+  key: string;
+  href: string;
+  icon: LucideIcon;
+}
+
+const navItemConfig: NavItem[] = [
+  { key: 'nav.home', href: '/home', icon: HomeIcon },
+  { key: 'nav.lists', href: '/lists', icon: ShoppingCart },
+  { key: 'nav.contacts', href: '/contacts', icon: Users },
+  { key: 'nav.profile', href: '/profile', icon: User },
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
+  const { t } = useTranslation();
   
-  // Don't show navbar on login page
   if (pathname === '/login') {
     return null;
   }
@@ -27,7 +36,7 @@ export default function Navbar() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-850 border-t border-gray-200 dark:border-gray-700 shadow-lg backdrop-blur-sm bg-opacity-95 dark:bg-opacity-95">
       <div className="flex items-center justify-around h-16 px-4 max-w-screen-lg mx-auto">
-        {navItems.map((item) => {
+        {navItemConfig.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
           
@@ -49,7 +58,7 @@ export default function Navbar() {
                   <span className="absolute -top-1 -right-1 h-2 w-2 bg-blue-600 dark:bg-blue-400 rounded-full"></span>
                 )}
               </div>
-              <span className={`transition-all duration-200 ${isActive ? 'scale-105' : ''}`}>{item.name}</span>
+              <span className={`transition-all duration-200 ${isActive ? 'scale-105' : ''}`}>{t(item.key)}</span>
               {isActive && (
                 <div className="absolute -bottom-1 left-1/2 w-10 h-1 bg-blue-600 dark:bg-blue-400 rounded-full transform -translate-x-1/2"></div>
               )}

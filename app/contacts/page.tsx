@@ -9,6 +9,7 @@ import { supabase } from '@/services/supabase';
 import { toast } from '@/components/ui/toast';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { AddContactDialog } from '@/components/contacts/add-contact-dialog';
+import { useTranslation } from 'react-i18next';
 
 interface Contact {
   id: string;
@@ -18,6 +19,7 @@ interface Contact {
 
 export default function ContactsPage() {
   const router = useRouter();
+  const { t, i18n } = useTranslation();
   const [isLoading, setIsLoading] = useState(true);
   const [contacts, setContacts] = useState<Contact[]>([]);
   
@@ -27,7 +29,7 @@ export default function ContactsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
-        toast.info('الرجاء تسجيل الدخول أولاً');
+        toast.info(t('auth.loginRequired'));
         router.push('/login');
         return;
       }
@@ -49,11 +51,11 @@ export default function ContactsPage() {
       setContacts(data || []);
     } catch (error) {
       console.error('Error loading contacts:', error);
-      toast.error('حدث خطأ أثناء تحميل البيانات');
+      toast.error(t('contacts.loadError'));
     } finally {
       setIsLoading(false);
     }
-  }, [router]);
+  }, [router, t]);
   
   useEffect(() => {
     loadContacts();
@@ -86,15 +88,15 @@ export default function ContactsPage() {
         // ننتظر انتهاء التأثير قبل إزالة العنصر من الحالة
         setTimeout(() => {
           setContacts(updatedContacts);
-          toast.success('تم حذف جهة الاتصال بنجاح');
+          toast.success(t('contacts.deleteSuccess'));
         }, 300);
       } else {
         setContacts(updatedContacts);
-        toast.success('تم حذف جهة الاتصال بنجاح');
+        toast.success(t('contacts.deleteSuccess'));
       }
     } catch (error) {
       console.error('Error deleting contact:', error);
-      toast.error('حدث خطأ أثناء حذف جهة الاتصال');
+      toast.error(t('contacts.deleteError'));
     }
   };
   
@@ -105,7 +107,7 @@ export default function ContactsPage() {
           <div className="bg-blue-100 dark:bg-blue-900 p-4 rounded-full">
             <UsersRound className="h-10 w-10 text-blue-500 dark:text-blue-300" />
           </div>
-          <span className="text-xl">جاري التحميل...</span>
+          <span className="text-xl">{t('common.loading')}</span>
         </div>
       </div>
     );
@@ -113,13 +115,13 @@ export default function ContactsPage() {
 
   return (
     <div className="p-4 pt-0 pb-20">
-      <Header title="الأشخاص" />
+      <Header title={t('contacts.pageTitle')} />
       
       <div className="space-y-6 mt-4">
         <div className="flex justify-between items-center">
           <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
             <UsersRound size={20} className="text-blue-600 dark:text-blue-400" />
-            <span>جهات الاتصال</span>
+            <span>{t('contacts.sectionTitle')}</span>
             <span className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs rounded-full px-2 py-1 ml-2">
               {contacts.length}
             </span>
@@ -146,13 +148,13 @@ export default function ContactsPage() {
                         <h3 className="font-semibold text-gray-800 dark:text-gray-200">{contact.contact_username}</h3>
                         <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
                           <CalendarDays size={14} />
-                          <span>{new Date(contact.added_at).toLocaleDateString('en-US')}</span>
+                          <span>{new Date(contact.added_at).toLocaleDateString(i18n.language)}</span>
                         </p>
                       </div>
                     </div>
                     <ConfirmDialog
-                      title="حذف جهة الاتصال"
-                      description={`هل أنت متأكد من حذف "${contact.contact_username}" من جهات الاتصال؟ لا يمكن التراجع عن هذا الإجراء.`}
+                      title={t('contacts.deleteConfirmTitle')}
+                      description={t('contacts.deleteConfirmDescription', { name: contact.contact_username })}
                       onConfirm={() => handleDeleteContact(contact.id)}
                     />
                   </div>
@@ -166,13 +168,13 @@ export default function ContactsPage() {
                   <UsersRound className="h-10 w-10 text-gray-400 dark:text-gray-500" />
                 </div>
                 <p className="text-gray-500 dark:text-gray-400 font-medium">
-                  لا توجد جهات اتصال
+                  {t('contacts.noContacts')}
                 </p>
                 <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">
-                  يمكنك إضافة المستخدمين المسجلين في النظام كجهات اتصال
+                  {t('contacts.addRegisteredUsers')}
                 </p>
                 <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
-                  فقط المستخدمين الذين لديهم حسابات في التطبيق يمكن إضافتهم
+                  {t('contacts.onlyAppUsers')}
                 </p>
               </CardContent>
             </Card>
