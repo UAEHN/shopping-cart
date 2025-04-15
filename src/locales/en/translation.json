@@ -83,9 +83,9 @@
     "notificationPurchased": "{{purchaser}} updated an item in {{listName}}"
   },
   "common": {
+    "appName": "Shopping Cart",
     "loading": "Loading...",
     "unknownTime": "Unknown time",
-    "appName": "Shopping List",
     "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",

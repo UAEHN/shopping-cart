@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Slide, ToastContainer, toast as reactToast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { useTheme } from '@/components/theme-provider';
+import { useTheme } from 'next-themes';
 
 // منع ظهور نفس الإشعار أكثر من مرة في فترة زمنية محددة
 const activeToasts = new Set<string>();

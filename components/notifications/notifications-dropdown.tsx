@@ -133,7 +133,7 @@ export function NotificationsDropdown() {
 
       {/* قائمة الإشعارات */}
       {isOpen && (
-        <div className="absolute ltr:right-0 rtl:left-0 mt-2 w-80 sm:w-96 bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 z-50">
+        <div className="absolute left-1/2 transform -translate-x-1/2 mt-2 w-[90vw] max-w-xs bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 z-50 sm:left-auto sm:transform-none sm:w-96 sm:max-w-none ltr:sm:right-0 rtl:sm:left-0">
           <div className="p-3 bg-gray-50 dark:bg-gray-750 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
             <h3 className="font-semibold text-gray-800 dark:text-gray-200">{t('notifications.dropdownTitle')}</h3>
             

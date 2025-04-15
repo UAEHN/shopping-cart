@@ -81,7 +81,7 @@
     "notificationPurchased": "قام {{purchaser}} بتحديث عنصر في قائمة {{listName}}"
   },
   "common": {
-    "appName": "قائمة التسوق",
+    "appName": "عربة التسوق",
     "loading": "جاري التحميل...",
     "save": "حفظ",
     "cancel": "إلغاء",

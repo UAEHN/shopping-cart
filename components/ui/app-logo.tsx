@@ -1,13 +1,21 @@
 'use client';
 
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ShoppingCart } from 'lucide-react';
 import { usePathname } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
 
 export function AppLogo({ size = 'normal', withLink = true }: { size?: 'small' | 'normal' | 'large', withLink?: boolean }) {
   const pathname = usePathname();
+  const { t } = useTranslation();
+  const [isMounted, setIsMounted] = useState(false);
   const isLoginPage = pathname === '/login';
   const targetHref = isLoginPage ? '/login' : '/home';
+  
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
   
   // تحديد الأحجام بناءً على معامل الحجم
   const containerClasses = {
@@ -33,14 +41,9 @@ export function AppLogo({ size = 'normal', withLink = true }: { size?: 'small' |
       <div className="relative">
         <ShoppingCart className={`${iconSize[size]} text-blue-600 dark:text-blue-400 relative z-10`} />
       </div>
-      <div className="flex flex-col">
-        <span className={`${textSize[size]} font-bold leading-none bg-gradient-to-r from-blue-600 to-blue-800 dark:from-blue-400 dark:to-blue-600 bg-clip-text text-transparent`}>
-          عربة التسوق
-        </span>
-        <span className={`${textSize[size]} mt-1.5 text-xs text-gray-500 dark:text-gray-400 font-semibold leading-none`}>
-          Shopping Cart
-        </span>
-      </div>
+      <span className={`${textSize[size]} font-bold leading-none bg-gradient-to-r from-blue-600 to-blue-800 dark:from-blue-400 dark:to-blue-600 bg-clip-text text-transparent whitespace-nowrap`}>
+        {isMounted ? t('common.appName') : <>&nbsp;</>}
+      </span>
     </div>
   );
   

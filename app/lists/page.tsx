@@ -7,7 +7,7 @@ import { toast, clearAllToasts } from '@/components/ui/toast';
 import Header from '@/components/layout/Header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart, Clock, CheckCircle, Package, Send, Receipt, Plus, RefreshCw, Trash2, AlertCircle } from 'lucide-react';
+import { ShoppingCart, Clock, CheckCircle, Package, Send, Receipt, Plus, RefreshCw, Trash2, AlertCircle, Inbox } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from 'react-i18next';
@@ -242,7 +242,7 @@ export default function ListsPage() {
     return (
       <Card className="border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-xl overflow-hidden mt-6">
         <CardContent className="flex flex-col items-center justify-center p-10 text-center">
-          {type === 'sent' ? <Send className="h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" /> : <Receipt className="h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" />}
+          {type === 'sent' ? <Send className="h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" /> : <Inbox className="h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" />}
           <h3 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-2">
             {type === 'sent' ? t('lists.noSentLists') : t('lists.noReceivedLists')}
           </h3>
@@ -305,7 +305,7 @@ export default function ListsPage() {
             <div className="flex justify-between items-start">
               <div className="flex items-center gap-3">
                 <div className="bg-blue-100 dark:bg-blue-900/50 p-2 rounded-full">
-                  {isSent ? <Send className="h-5 w-5 text-blue-600 dark:text-blue-400" /> : <Receipt className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
+                  {isSent ? <Send className="h-5 w-5 text-blue-600 dark:text-blue-400" /> : <Inbox className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
                 </div>
                 <div>
                   <h3 className="font-medium text-gray-900 dark:text-gray-100">
@@ -374,7 +374,20 @@ export default function ListsPage() {
   
   return (
     <div className="container mx-auto p-4 pt-0 pb-20">
-      <Header title={t('lists.pageTitle')} showCreateButton />
+      <Header 
+        title={t('lists.pageTitle')} 
+        extras={(
+          <Button 
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 text-xs p-1 h-auto bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 border-blue-200 dark:border-blue-700"
+            onClick={navigateToCreateList}
+          >
+            <Plus className="h-4 w-4" />
+            <span>{t('lists.createNewList')}</span>
+          </Button>
+        )}
+      />
       
       {listToDelete && (
         <div className="fixed inset-0 bg-black/50 dark:bg-black/70 z-40 flex items-center justify-center p-4 animate__fadeIn animate__faster">
@@ -422,7 +435,7 @@ export default function ListsPage() {
               value="received"
               className="flex-1 data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-lg py-2.5 flex items-center justify-center gap-1.5"
             >
-               <Receipt className="h-4 w-4" />
+               <Inbox className="h-4 w-4" />
                <span>{t('lists.receivedTab')}</span>
                <Badge className="ml-1.5 bg-white/80 text-blue-800 dark:bg-blue-500/30 dark:text-blue-200 font-normal px-1.5 py-0.5 text-xs">
                   {receivedLists.length}

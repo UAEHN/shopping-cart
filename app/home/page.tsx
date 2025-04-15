@@ -14,6 +14,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ar, enUS } from 'date-fns/locale';
 import { ClipboardCheck, Check, AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { motion } from 'framer-motion';
 
 export default function HomePage() {
   const router = useRouter();
@@ -119,12 +120,17 @@ export default function HomePage() {
 
   return (
     <div className="p-4 pt-0 pb-20">
-      <Header showCreateButton />
+      <Header />
       
       <div className="space-y-6 mt-4">
-        <h1 className="text-2xl font-bold animate__animated animate__fadeIn bg-gradient-to-l from-blue-600 to-blue-800 dark:from-blue-500 dark:to-blue-300 bg-clip-text text-transparent py-2">
+        <motion.h1
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="text-2xl font-bold bg-gradient-to-l from-blue-600 to-blue-800 dark:from-blue-500 dark:to-blue-300 bg-clip-text text-transparent py-2"
+        >
           {userName ? t('home.welcome', { name: userName }) : t('home.welcomeFallback')}
-        </h1>
+        </motion.h1>
         
         <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-white dark:from-blue-950 dark:to-gray-900 dark:border-blue-800 transition-all duration-300 hover:shadow-lg rounded-2xl overflow-hidden">
           <CardContent className="p-0">
@@ -138,24 +144,30 @@ export default function HomePage() {
                   {t('home.createNewListDescription')}
                 </p>
               </div>
-              <Button 
-                className="w-full transition-all duration-300 hover:bg-blue-700 dark:hover:bg-blue-700 rounded-xl py-6 text-lg font-medium bg-blue-600 dark:bg-blue-800 shadow-md hover:shadow-lg"
-                onClick={handleCreateNewList}
+              <motion.div
+                className="w-full"
+                whileHover={{ scale: 1.03, y: -3, transition: { duration: 0.2 } }}
+                whileTap={{ scale: 0.97 }}
               >
-                {t('home.newListButton')}
-              </Button>
+                <Button
+                  className="w-full rounded-xl py-3 text-lg font-medium bg-blue-600 hover:bg-blue-700 dark:bg-blue-800 dark:hover:bg-blue-700 text-white shadow-md"
+                  onClick={handleCreateNewList}
+                >
+                  {t('home.newListButton')}
+                </Button>
+              </motion.div>
             </div>
           </CardContent>
         </Card>
         
-        <div className="grid grid-cols-2 gap-4 mt-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8">
           <Link href="/lists" className="block">
-            <Card className="border-gray-200 bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 transition-all duration-300 hover:shadow-md rounded-xl h-full cursor-pointer hover:translate-y-[-2px]">
-              <CardContent className="p-4 flex flex-col items-center text-center h-full">
-                <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-full mt-2 mb-3">
+            <Card variant="lifted" className="h-full cursor-pointer">
+              <CardContent cardVariant="lifted" className="p-4 flex flex-col items-center text-center h-full">
+                <div className="bg-gray-100 dark:bg-zinc-800 p-3 rounded-full mt-2 mb-3">
                   <ShoppingCart className="h-6 w-6 text-gray-600 dark:text-gray-300" />
                 </div>
-                <h3 className="font-medium text-sm">{t('home.shoppingListsCardTitle')}</h3>
+                <h3 className="font-medium text-sm text-gray-900 dark:text-gray-100">{t('home.shoppingListsCardTitle')}</h3>
                 <span className="mt-2 text-blue-600 dark:text-blue-400 text-xs">
                   {t('home.viewAllLink')}
                 </span>
@@ -164,12 +176,12 @@ export default function HomePage() {
           </Link>
 
           <Link href="/contacts" className="block">
-            <Card className="border-gray-200 bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 transition-all duration-300 hover:shadow-md rounded-xl h-full cursor-pointer hover:translate-y-[-2px]">
-              <CardContent className="p-4 flex flex-col items-center text-center h-full">
-                <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-full mt-2 mb-3">
+            <Card variant="lifted" className="h-full cursor-pointer">
+              <CardContent cardVariant="lifted" className="p-4 flex flex-col items-center text-center h-full">
+                <div className="bg-gray-100 dark:bg-zinc-800 p-3 rounded-full mt-2 mb-3">
                   <Users className="h-6 w-6 text-gray-600 dark:text-gray-300" />
                 </div>
-                <h3 className="font-medium text-sm">{t('home.contactsCardTitle')}</h3>
+                <h3 className="font-medium text-sm text-gray-900 dark:text-gray-100">{t('home.contactsCardTitle')}</h3>
                 <span className="mt-2 text-blue-600 dark:text-blue-400 text-xs">
                   {t('home.viewAllLink')}
                 </span>
@@ -211,9 +223,18 @@ function NotificationsList({ userId, limit = 3, showEmpty = true }: { userId?: s
   const { notifications, isLoading, markAsRead } = useNotifications(userId || null, limit);
   const router = useRouter();
   const { t, i18n } = useTranslation();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const dateLocale = i18n.language.startsWith('ar') ? ar : enUS;
 
   const formatDate = (dateString: string) => {
+    if (!isMounted) {
+      return <span className="inline-block h-3 w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></span>;
+    }
     try {
       return formatDistanceToNow(new Date(dateString), { 
         addSuffix: true,
@@ -259,11 +280,19 @@ function NotificationsList({ userId, limit = 3, showEmpty = true }: { userId?: s
 
   if (!notifications.length && showEmpty) {
     return (
-      <Card className="bg-gradient-to-r from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 rounded-xl overflow-hidden border-gray-200 dark:border-gray-700 transition-all duration-300">
-        <CardContent className="p-6 text-center">
-          <p className="text-gray-500 dark:text-gray-400 flex flex-col items-center gap-3">
-            <Bell className="h-8 w-8 text-gray-400 dark:text-gray-500 opacity-50" />
-            <span>{t('notifications.noNotifications')}</span>
+      <Card className="bg-gradient-to-r from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 rounded-xl overflow-hidden border-gray-200 dark:border-gray-700 transition-all duration-300 border-dashed border-2">
+        <CardContent className="p-10 text-center">
+          <div className="flex justify-center items-center mb-5 relative h-12">
+            <div className="bg-gray-100 dark:bg-gray-800 size-12 grid place-items-center rounded-xl relative z-10 shadow-md ring-1 ring-border">
+              <Bell className="w-6 h-6 text-muted-foreground" />
+            </div>
+            <div className="bg-gray-100 dark:bg-gray-800 size-10 grid place-items-center rounded-xl absolute left-1/2 -translate-x-[80%] top-1.5 rotate-[-15deg] shadow-md ring-1 ring-border opacity-70">
+              <ShoppingCart className="w-5 h-5 text-muted-foreground" />
+            </div>
+          </div>
+          <h3 className="text-lg font-medium text-gray-800 dark:text-gray-200 mt-4">{t('notifications.noNotificationsTitle')}</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+            {t('notifications.noNotificationsDescription')}
           </p>
         </CardContent>
       </Card>

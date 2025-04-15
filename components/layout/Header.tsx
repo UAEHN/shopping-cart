@@ -11,14 +11,12 @@ import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 interface HeaderProps {
   showBackButton?: boolean;
-  showCreateButton?: boolean;
   title?: string;
   extras?: React.ReactNode;
 }
 
 export default function Header({
   showBackButton = false,
-  showCreateButton = false,
   title,
   extras
 }: HeaderProps) {
@@ -71,7 +69,7 @@ export default function Header({
           )}
         </div>
         
-        <div className="flex items-center space-x-reverse space-x-2">
+        <div className="flex items-center space-x-reverse space-x-1 sm:space-x-2">
           {extras}
           
           <NotificationsDropdown />
@@ -79,18 +77,6 @@ export default function Header({
           <LanguageSwitcher />
           
           <ThemeSwitcher />
-          
-          {showCreateButton && (
-            <Button
-              size="icon"
-              className="rounded-full transition-all duration-200 hover:scale-105 shadow-sm hover:shadow-md bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
-              asChild
-            >
-              <Link href="/create-list">
-                <Plus className="h-5 w-5" />
-              </Link>
-            </Button>
-          )}
         </div>
       </div>
     </header>

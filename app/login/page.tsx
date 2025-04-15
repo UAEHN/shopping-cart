@@ -1,19 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { signIn, signUp } from '@/services/supabase';
 import { toast } from '@/components/ui/toast';
 import { AppLogo } from '@/components/ui/app-logo';
-import { Eye, EyeOff, Mail, Lock, User, UserCircle } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, UserCircle, ArrowRight, UserRound } from 'lucide-react';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
+import { motion } from 'framer-motion';
 
 export default function LoginPage() {
   const { t } = useTranslation();
+  const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -26,6 +29,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [name, setName] = useState('');
+  
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,158 +108,227 @@ export default function LoginPage() {
         </div>
         
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          {t('auth.appDescription')}
+          {isMounted ? t('auth.appDescription') : <>&nbsp;</>}
         </p>
       </div>
       
-      <Card className="w-full max-w-md border-gray-200 dark:border-gray-700 shadow-lg dark:shadow-gray-800/20 rounded-xl overflow-hidden transition-all duration-300 animate-fadeIn">
-        <CardHeader className="bg-gradient-to-r from-blue-50 to-white dark:from-gray-900 dark:to-gray-700 pb-8">
-          <CardTitle className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-            {isLogin ? t('auth.loginTitle') : t('auth.registerTitle')}
-          </CardTitle>
-          <CardDescription className="text-center text-gray-600 dark:text-gray-400 mt-2">
-            {isLogin 
-              ? t('auth.loginDescription') 
-              : t('auth.registerDescription')}
-          </CardDescription>
-        </CardHeader>
-        
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-5 -mt-4 px-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center" htmlFor="email">
-                <Mail className="h-4 w-4 ml-1.5 text-gray-500 dark:text-gray-400" />
-                {t('auth.emailLabel')}
-              </label>
-              <div className="relative">
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder={t('auth.emailPlaceholder')}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500 transition-all pr-4"
-                  dir="ltr"
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center" htmlFor="password">
-                <Lock className="h-4 w-4 ml-1.5 text-gray-500 dark:text-gray-400" />
-                {t('auth.passwordLabel')}
-              </label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder={t('auth.passwordPlaceholder')}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500 transition-all pl-4 pr-10"
-                  dir="ltr"
-                />
-                <button 
-                  type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-            
-            {isLogin && (
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={() => setRememberMe(!rememberMe)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ml-2"
-                />
-                <label htmlFor="remember-me" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                  {t('auth.rememberMe')}
-                </label>
-              </div>
-            )}
-            
-            {!isLogin && (
-              <>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center" htmlFor="username">
-                    <User className="h-4 w-4 ml-1.5 text-gray-500 dark:text-gray-400" />
-                    {t('auth.usernameLabel')}
-                  </label>
-                  <div className="relative">
-                    <Input
-                      id="username"
-                      type="text"
-                      placeholder={t('auth.usernamePlaceholder')}
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      required
-                      className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                      dir="ltr"
-                    />
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center" htmlFor="name">
-                    <UserCircle className="h-4 w-4 ml-1.5 text-gray-500 dark:text-gray-400" />
-                    {t('auth.nameLabel')}
-                  </label>
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder={t('auth.namePlaceholder')}
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                    className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  />
-                </div>
-              </>
-            )}
-            
-            {error && (
-              <div className="bg-red-50 text-red-500 p-3 rounded-md text-sm dark:bg-red-900/30 dark:text-red-300 border border-red-100 dark:border-red-900/50 animate-fadeIn flex items-start">
-                <div className="bg-red-100 dark:bg-red-800 p-1 rounded-full ml-2 flex-shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-500 dark:text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <span>{error}</span>
-              </div>
-            )}
-          </CardContent>
+      <motion.div
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
+        className="w-full max-w-md"
+      >
+        <Card className="bg-card/50 dark:bg-card/80 backdrop-blur-sm shadow-lg dark:shadow-gray-800/20 rounded-xl overflow-hidden border-gray-200 dark:border-gray-700">
+          <CardHeader className="space-y-2 pt-6 pb-4 px-6 text-center">
+            <CardTitle className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+              {isLogin ? t('auth.loginTitle') : t('auth.registerTitle')}
+            </CardTitle>
+            <CardDescription className="text-muted-foreground dark:text-gray-300">
+              {isLogin 
+                ? t('auth.loginDescription') 
+                : t('auth.registerDescription')}
+            </CardDescription>
+          </CardHeader>
           
-          <CardFooter className="flex flex-col space-y-4 px-6 pb-6">
-            <Button 
-              type="submit" 
-              className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white font-medium py-5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:translate-y-[-1px]" 
-              disabled={isLoading}
-            >
-              {isLoading ? t('auth.loadingButton') : isLogin ? t('auth.loginButton') : t('auth.registerButton')}
-            </Button>
+          <form onSubmit={handleSubmit}>
+            <CardContent className="space-y-4 px-6">
+              {isLogin && (
+                <>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center" htmlFor="email">
+                      <Mail className="h-4 w-4 ml-1.5 text-gray-500 dark:text-gray-400" />
+                      {t('auth.emailLabel')}
+                    </Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder={t('auth.emailPlaceholder')}
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500 transition-all pr-4"
+                        dir="ltr"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center" htmlFor="password">
+                      <Lock className="h-4 w-4 ml-1.5 text-gray-500 dark:text-gray-400" />
+                      {t('auth.passwordLabel')}
+                    </Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder={t('auth.passwordPlaceholder')}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500 transition-all pr-10"
+                        dir="ltr"
+                      />
+                      <button 
+                        type="button"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                        onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <input
+                      id="remember-me"
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={() => setRememberMe(!rememberMe)}
+                      className="h-4 w-4 text-blue-600 dark:text-blue-500 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded ml-2"
+                    />
+                    <label htmlFor="remember-me" className="text-sm text-gray-700 dark:text-gray-400 cursor-pointer">
+                      {t('auth.rememberMe')}
+                    </label>
+                  </div>
+                </>
+              )}
+              
+              {!isLogin && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="email-register" className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('auth.emailLabel')}</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="email-register"
+                        placeholder={t('auth.emailPlaceholder')}
+                        type="email"
+                        autoCapitalize="none"
+                        autoComplete="email"
+                        autoCorrect="off"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                        required
+                        dir="ltr"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="password-register" className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('auth.passwordLabel')}</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="password-register"
+                        placeholder={t('auth.passwordPlaceholder')}
+                        type={showPassword ? "text" : "password"}
+                        autoComplete="new-password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="pl-10 pr-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                        required
+                        dir="ltr"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                        onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="username-register" className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('auth.usernameLabel')}</Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="username-register"
+                        placeholder={t('auth.usernamePlaceholder')}
+                        type="text"
+                        autoCapitalize="none"
+                        autoComplete="username"
+                        autoCorrect="off"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                        required
+                        dir="ltr"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="name-register" className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('auth.nameLabel')}</Label>
+                    <div className="relative">
+                      <UserRound className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="name-register"
+                        placeholder={t('auth.namePlaceholder')}
+                        type="text"
+                        autoCapitalize="words"
+                        autoComplete="name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                        required
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+              
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-red-50 text-red-500 p-3 rounded-md text-sm dark:bg-red-900/30 dark:text-red-300 border border-red-100 dark:border-red-900/50 flex items-start"
+                >
+                  <div className="bg-red-100 dark:bg-red-800 p-1 rounded-full ml-2 flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-500 dark:text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <span>{error}</span>
+                </motion.div>
+              )}
+            </CardContent>
             
-            <div className="flex items-center justify-between w-full text-center">
-              <Button 
-                type="button" 
-                variant="link" 
-                className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors p-0"
-                onClick={toggleView}
+            <CardFooter className="flex flex-col space-y-4 px-6 pb-6 pt-4">
+              <Button
+                type="submit"
+                className="w-full group relative overflow-hidden bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium py-2.5 rounded-lg shadow-md"
+                disabled={isLoading}
               >
-                {isLogin ? t('auth.toggleToRegister') : t('auth.toggleToLogin')}
+                <div className="absolute inset-0 w-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-300 ease-out group-hover:w-full opacity-60 dark:opacity-40"></div>
+                <span className="relative flex items-center justify-center gap-2">
+                  {isLoading ? t('auth.loadingButton') : isLogin ? t('auth.loginButton') : t('auth.registerButton')}
+                  {!isLoading && <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />}
+                </span>
               </Button>
-              <LanguageSwitcher />
-            </div>
-          </CardFooter>
-        </form>
-      </Card>
+              
+              <div className="flex items-center justify-between w-full text-center">
+                <Button
+                  type="button"
+                  variant="link"
+                  className="text-sm text-muted-foreground underline-offset-4 hover:text-primary hover:underline p-0 h-auto"
+                  onClick={toggleView}
+                >
+                  {isLogin ? t('auth.toggleToRegister') : t('auth.toggleToLogin')}
+                </Button>
+                <LanguageSwitcher />
+              </div>
+            </CardFooter>
+          </form>
+        </Card>
+      </motion.div>
     </div>
   );
 } 
