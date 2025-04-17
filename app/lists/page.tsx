@@ -13,6 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow, format, parseISO } from 'date-fns';
 import { ar, enUS } from 'date-fns/locale';
+import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from "@/lib/utils";
+import { useTheme } from 'next-themes';
 
 interface ShoppingList {
   id: string;
@@ -48,6 +51,7 @@ export default function ListsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [listToDelete, setListToDelete] = useState<string | null>(null);
   const dateLocale = i18n.language.startsWith('ar') ? ar : enUS;
+  const { theme } = useTheme();
 
   useEffect(() => {
     const checkAuthAndLoadLists = async () => {
@@ -239,6 +243,24 @@ export default function ListsPage() {
   }, [isDeleting, t]);
   
   const EmptyListsMessage = ({ type }: { type: 'sent' | 'received' }) => {
+    const MotionButton = motion(Button);
+    const { theme } = useTheme();
+    // Define variants for the icon/text stagger effect on hover
+    const buttonContentVariants = {
+      rest: { y: 0 },
+      hover: { y: -2 }
+    };
+    const buttonTransition = { 
+      type: 'spring', 
+      stiffness: 400, 
+      damping: 15,
+      staggerChildren: 0.05 // Stagger icon and text slightly
+    };
+
+    // Define gradients for light and dark modes
+    const gradientLight = "linear-gradient(100deg, #1e40af, #1d4ed8, #2563eb, #1d4ed8, #1e40af)"; // Darker blues for light mode
+    const gradientDark = "linear-gradient(100deg, #2563eb, #3b82f6, #60a5fa, #3b82f6, #2563eb)"; // Original gradient for dark mode
+
     return (
       <Card className="border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-xl overflow-hidden mt-6">
         <CardContent className="flex flex-col items-center justify-center p-10 text-center">
@@ -250,10 +272,37 @@ export default function ListsPage() {
             {type === 'sent' ? t('lists.noSentListsMessage') : t('lists.noReceivedListsMessage')}
           </p>
           {type === 'sent' && (
-            <Button onClick={navigateToCreateList} className="mt-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white rounded-lg shadow-md transition-all duration-200">
-              <Plus className="h-4 w-4 mr-1" />
-              <span>{t('lists.createNewList')}</span>
-            </Button>
+            <MotionButton 
+              onClick={navigateToCreateList} 
+              className="mt-4 text-white rounded-lg shadow-md transition-colors duration-200 relative overflow-hidden px-5 py-2.5"
+              style={{
+                backgroundImage: theme === 'light' ? gradientLight : gradientDark,
+                backgroundSize: "400% 100%", 
+              }}
+              animate={{
+                backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] 
+              }}
+              whileHover="hover" 
+              initial="rest"
+              transition={{
+                 backgroundPosition: {
+                   duration: 5, 
+                   repeat: Infinity,
+                   repeatType: "loop",
+                   ease: "linear"
+                 },
+                 ...buttonTransition 
+              }}
+            >
+              <motion.span variants={buttonContentVariants} className="flex items-center justify-center">
+                <motion.span variants={buttonContentVariants} className="inline-block mr-1">
+                    <Plus className="h-4 w-4" />
+                </motion.span>
+                <motion.span variants={buttonContentVariants} className="inline-block">
+                    {t('lists.createNewList')}
+                </motion.span>
+              </motion.span>
+            </MotionButton>
           )}
         </CardContent>
       </Card>
@@ -302,30 +351,25 @@ export default function ListsPage() {
       >
         <CardContent className="p-4">
           <div className="flex flex-col space-y-4">
-            <div className="flex justify-between items-start">
-              <div className="flex items-center gap-3">
-                <div className="bg-blue-100 dark:bg-blue-900/50 p-2 rounded-full">
+            <div className="flex justify-between items-start gap-2">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="bg-blue-100 dark:bg-blue-900/50 p-2 rounded-full shrink-0">
                   {isSent ? <Send className="h-5 w-5 text-blue-600 dark:text-blue-400" /> : <Inbox className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
                 </div>
-                <div>
-                  <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                <div className="min-w-0">
+                  <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">
                     {isSent ? t('lists.listTo', { name: list.recipient_username }) : t('lists.listFrom', { name: list.creator_username })}
                   </h3>
-                  <div className="flex items-center gap-2 mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    <ShoppingCart className="h-4 w-4" />
-                    <span>{t('lists.item', { count: itemsCount })}</span>
+                  <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    <span className="flex items-center gap-1 shrink-0"><ShoppingCart className="h-4 w-4" /><span>{t('lists.item', { count: itemsCount })}</span></span>
                     {completedItemsCount > 0 && (
-                      <>
-                        <span className="mx-1">•</span>
-                        <span>{t('lists.purchased', { count: completedItemsCount })}</span>
-                      </>
+                      <span className="flex items-center gap-1 shrink-0"><span className="hidden sm:inline mx-1">•</span><span>{t('lists.purchased', { count: completedItemsCount })}</span></span>
                     )}
-                    <span className="mx-1">•</span>
-                    <span>{formatDate(list.created_at)}</span>
+                    <span className="flex items-center gap-1 shrink-0"><span className="hidden sm:inline mx-1">•</span><span>{formatDate(list.created_at)}</span></span>
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 {renderStatusBadge(list.status)}
                 {isSent && (
                   <button
@@ -359,6 +403,20 @@ export default function ListsPage() {
     );
   };
   
+  // Animation variants for TabsContent
+  const tabContentVariants = {
+    hidden: { opacity: 0, y: 10 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" } },
+    exit: { opacity: 0, y: -10, transition: { duration: 0.2, ease: "easeIn" } }
+  };
+
+  // Transition for the tubelight effect
+  const tubelightTransition = {
+    type: "spring",
+    stiffness: 500, // Adjusted stiffness/damping for a potentially faster feel on tabs
+    damping: 40,
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -377,15 +435,34 @@ export default function ListsPage() {
       <Header 
         title={t('lists.pageTitle')} 
         extras={(
-          <Button 
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1 text-xs p-1 h-auto bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 border-blue-200 dark:border-blue-700"
-            onClick={navigateToCreateList}
+          <motion.div
+            animate={{
+              scale: [1, 1.03, 1],
+              boxShadow: [
+                "0 0 0 0 rgba(59, 130, 246, 0.3)",
+                "0 0 0 6px rgba(59, 130, 246, 0)",
+                "0 0 0 0 rgba(59, 130, 246, 0.3)"
+              ]
+            }}
+            transition={{
+              duration: 1.5,
+              repeat: Infinity,
+              repeatType: "loop",
+              ease: "easeInOut",
+              delay: 0.5
+            }}
+            className="rounded-lg"
           >
-            <Plus className="h-4 w-4" />
-            <span>{t('lists.createNewList')}</span>
-          </Button>
+            <Button 
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 text-xs p-1 h-auto bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 border-blue-200 dark:border-blue-700 relative z-10"
+              onClick={navigateToCreateList}
+            >
+              <Plus className="h-4 w-4" />
+              <span>{t('lists.createNewList')}</span>
+            </Button>
+          </motion.div>
         )}
       />
       
@@ -430,93 +507,139 @@ export default function ListsPage() {
             window.history.pushState({}, '', url.toString());
           }}
         >
-          <TabsList className="grid w-full grid-cols-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl mb-6">
-            <TabsTrigger
-              value="received"
-              className="flex-1 data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-lg py-2.5 flex items-center justify-center gap-1.5"
-            >
-               <Inbox className="h-4 w-4" />
-               <span>{t('lists.receivedTab')}</span>
-               <Badge className="ml-1.5 bg-white/80 text-blue-800 dark:bg-blue-500/30 dark:text-blue-200 font-normal px-1.5 py-0.5 text-xs">
-                  {receivedLists.length}
-                </Badge>
-            </TabsTrigger>
-            <TabsTrigger
-              value="sent"
-              className="flex-1 data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-lg py-2.5 flex items-center justify-center gap-1.5"
-            >
-               <Send className="h-4 w-4" />
-               <span>{t('lists.sentTab')}</span>
-               <Badge className="ml-1.5 bg-white/80 text-blue-800 dark:bg-blue-500/30 dark:text-blue-200 font-normal px-1.5 py-0.5 text-xs">
-                  {sentLists.length}
-                </Badge>
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="sent" className="space-y-4 mt-0">
-            <div className="flex justify-between items-center mb-3">
-                <h2 className="text-lg font-medium dark:text-white">
-                    {t('lists.sentLists')}
-                </h2>
-                <div className="flex items-center gap-2">
-                    <Button
-                        onClick={refreshLists}
-                        variant="outline"
-                         size="sm"
-                        className="flex items-center gap-1 text-xs"
-                        disabled={isRefreshing}
+          <motion.div layout className="mb-6">
+            <TabsList className="grid w-full grid-cols-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+              <TabsTrigger
+                value="received"
+                className="relative flex-1 data-[state=active]:text-blue-700 dark:data-[state=active]:text-white rounded-lg py-2.5 flex items-center justify-center gap-1.5 focus-visible:ring-offset-0 focus-visible:ring-2 focus-visible:ring-blue-400 dark:focus-visible:ring-blue-500 outline-none transition-colors duration-300"
+              >
+                 <span className="relative z-10 flex items-center justify-center gap-1.5">
+                   <Inbox className="h-4 w-4" />
+                   <span>{t('lists.receivedTab')}</span>
+                   <Badge className="ml-1.5 bg-white/80 text-blue-800 dark:bg-blue-500/30 dark:text-blue-200 font-normal px-1.5 py-0.5 text-xs">
+                      {receivedLists.length}
+                    </Badge>
+                 </span>
+                  {tab === 'received' && (
+                     <motion.div
+                      layoutId="tab-indicator"
+                      className="absolute bottom-0 left-0 right-0 h-[3px] px-4 z-0"
+                      initial={false}
+                      transition={tubelightTransition}
+                      style={{ borderRadius: '2px' }}
                     >
-                        <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
-                        <span>{t('lists.refresh')}</span>
-                    </Button>
-                    <Button
-                        onClick={navigateToCreateList}
-                        variant="ghost"
-                        size="sm"
-                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30 flex items-center gap-1 text-xs"
+                      <div className="w-full h-full bg-blue-500 dark:bg-blue-400 rounded-full">
+                         <div className="absolute inset-0 bg-blue-500/30 dark:bg-blue-400/30 blur-md rounded-full" />
+                      </div>
+                    </motion.div>
+                  )}
+              </TabsTrigger>
+              
+              <TabsTrigger
+                value="sent"
+                 className="relative flex-1 data-[state=active]:text-blue-700 dark:data-[state=active]:text-white rounded-lg py-2.5 flex items-center justify-center gap-1.5 focus-visible:ring-offset-0 focus-visible:ring-2 focus-visible:ring-blue-400 dark:focus-visible:ring-blue-500 outline-none transition-colors duration-300"
+              >
+                 <span className="relative z-10 flex items-center justify-center gap-1.5">
+                   <Send className="h-4 w-4" />
+                   <span>{t('lists.sentTab')}</span>
+                   <Badge className="ml-1.5 bg-white/80 text-blue-800 dark:bg-blue-500/30 dark:text-blue-200 font-normal px-1.5 py-0.5 text-xs">
+                      {sentLists.length}
+                    </Badge>
+                 </span>
+                  {tab === 'sent' && (
+                    <motion.div
+                      layoutId="tab-indicator"
+                      className="absolute bottom-0 left-0 right-0 h-[3px] px-4 z-0"
+                      initial={false}
+                      transition={tubelightTransition}
+                      style={{ borderRadius: '2px' }}
                     >
-                        <Plus className="h-3 w-3" />
-                        <span>{t('lists.createNewList')}</span>
-                    </Button>
-                </div>
-            </div>
-            {sentLists.length > 0 ? (
-                <div className="grid gap-4">
-                    {sentLists.map(list => (
-                        <ListCard key={list.id} list={list} isSent={true} />
-                    ))}
-                </div>
-            ) : (
-                <EmptyListsMessage type="sent" />
-            )}
-          </TabsContent>
+                      <div className="w-full h-full bg-blue-500 dark:bg-blue-400 rounded-full">
+                        <div className="absolute inset-0 bg-blue-500/30 dark:bg-blue-400/30 blur-md rounded-full" />
+                      </div>
+                    </motion.div>
+                  )}
+              </TabsTrigger>
+            </TabsList>
+          </motion.div>
           
-          <TabsContent value="received" className="space-y-4 mt-0">
-            <div className="flex justify-between items-center mb-3">
-                <h2 className="text-lg font-medium dark:text-white">
-                    {t('lists.receivedLists')}
-                </h2>
-                <Button
-                    onClick={refreshLists}
-                    variant="outline"
-                    size="sm"
-                    className="flex items-center gap-1 text-xs"
-                    disabled={isRefreshing}
-                >
-                    <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
-                    <span>{t('lists.refresh')}</span>
-                </Button>
-            </div>
-            {receivedLists.length > 0 ? (
-                 <div className="grid gap-4">
-                    {receivedLists.map(list => (
-                        <ListCard key={list.id} list={list} isSent={false} />
-                    ))}
-                </div>
-            ) : (
-                <EmptyListsMessage type="received" />
+          <AnimatePresence mode='wait'>
+            {tab === 'sent' && (
+              <motion.div
+                key="sent-content"
+                variants={tabContentVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+              >
+                <TabsContent value="sent" className="space-y-4 mt-0">
+                  <div className="flex justify-between items-center mb-3">
+                      <h2 className="text-lg font-medium dark:text-white">
+                          {t('lists.sentLists')}
+                      </h2>
+                      <div className="flex items-center gap-2">
+                          <Button
+                              onClick={refreshLists}
+                              variant="outline"
+                               size="sm"
+                              className="flex items-center gap-1 text-xs"
+                              disabled={isRefreshing}
+                          >
+                              <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+                              <span>{t('lists.refresh')}</span>
+                          </Button>
+                      </div>
+                  </div>
+                  {sentLists.length > 0 ? (
+                      <div className="grid gap-4">
+                          {sentLists.map(list => (
+                              <ListCard key={list.id} list={list} isSent={true} />
+                          ))}
+                      </div>
+                  ) : (
+                      <EmptyListsMessage type="sent" />
+                  )}
+                </TabsContent>
+              </motion.div>
             )}
-          </TabsContent>
+
+            {tab === 'received' && (
+              <motion.div
+                key="received-content"
+                variants={tabContentVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+              >
+                <TabsContent value="received" className="space-y-4 mt-0" forceMount>
+                  <div className="flex justify-between items-center mb-3">
+                      <h2 className="text-lg font-medium dark:text-white">
+                          {t('lists.receivedLists')}
+                      </h2>
+                      <Button
+                          onClick={refreshLists}
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-1 text-xs"
+                          disabled={isRefreshing}
+                      >
+                          <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+                          <span>{t('lists.refresh')}</span>
+                      </Button>
+                  </div>
+                  {receivedLists.length > 0 ? (
+                       <div className="grid gap-4">
+                          {receivedLists.map(list => (
+                              <ListCard key={list.id} list={list} isSent={false} />
+                          ))}
+                      </div>
+                  ) : (
+                      <EmptyListsMessage type="received" />
+                  )}
+                </TabsContent>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </Tabs>
       </div>
     </div>

@@ -16,6 +16,8 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import imageCompression from 'browser-image-compression';
 import { useTranslation } from 'react-i18next';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useTheme } from 'next-themes';
 
 
 interface ListItem {
@@ -169,11 +171,63 @@ function ImagePreviewModal({
   );
 }
 
+// --- Animation Variants (Debugging: Force Initial White Always) ---
+const getItemVariants = (theme: string | undefined) => ({
+  initial: {
+    opacity: 1,
+    transition: { duration: 0.4 }
+  },
+  purchased: {
+    backgroundColor: theme === 'dark' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(74, 222, 128, 0.1)',
+    opacity: 0.85,
+    transition: { duration: 0.4 }
+  }
+});
+
+// Updated nameVariants to always force initial white for debugging
+const getNameVariants = (theme: string | undefined) => ({
+  initial: {
+    x: 0,
+    // Set color based on theme for better visibility
+    color: theme === 'dark' ? '#F9FAFB' : '#111827', // gray-50 : gray-900
+  },
+  purchased: {
+    x: 10,
+    // Use Hex colors for clarity
+    color: theme === 'dark' ? '#D1D5DB' : '#6B7280', // gray-300 : gray-500
+  }
+});
+
+// Updated lineVariants for slide effect
+const lineVariants = {
+  initial: {
+    x: 0,
+    scaleX: 0,
+    opacity: 0,
+    // transition inherited from parent (name span)
+  },
+  purchased: {
+    x: 0, // Keep line aligned with the sliding text
+    scaleX: 1,
+    opacity: 1,
+    // transition inherited from parent (name span)
+  }
+};
+
+// Define the spring transition
+const springTransition = {
+  type: "spring",
+  stiffness: 300, // Adjust for bounciness
+  damping: 25     // Adjust for smoothness
+};
+// --- End Animation Variants ---
+
 export default function ListDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const listId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : '';
   const { t, i18n } = useTranslation();
+  const { theme } = useTheme();
   
   const [isLoading, setIsLoading] = useState(true);
   const [listDetails, setListDetails] = useState<ListDetails | null>(null);
@@ -185,6 +239,10 @@ export default function ListDetailsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
+  // Generate theme-specific variants
+  const itemVariants = getItemVariants(theme);
+  const nameVariants = getNameVariants(theme);
+
   const loadListDetails = useCallback(async () => {
     try {
       if (!listId) {
@@ -497,8 +555,11 @@ export default function ListDetailsPage() {
       }
 
       if (newListStatus !== currentListStatus) {
-        console.log(`List status changed from ${currentListStatus} to ${newListStatus}. Updating DB.`);
+        console.log(`[toggleItemPurchase] Status changed! From: ${currentListStatus}, To: ${newListStatus}. Preparing notification record.`);
         
+        const notificationRecipientUsername = listDetails.creator_username;
+        const notificationActorUsername = currentUser;
+
         // 4a. Update list status in DB
         const { error: listStatusUpdateError } = await supabase
           .from('lists')
@@ -507,12 +568,71 @@ export default function ListDetailsPage() {
 
         if (listStatusUpdateError) {
           console.error('Error updating list status in DB:', listStatusUpdateError);
-          // Don't return here - we still want to update the UI and finish the toggle function
           toast.error(t('listDetails.listStatusUpdateError', { errorMessage: listStatusUpdateError.message }), 1500);
+          // Don't return, proceed to update local state and maybe notify anyway if DB failed?
+          // Or maybe we should return here to avoid inconsistent state/notifications?
+          // For now, let's proceed but be aware of this potential issue.
         } else {
            // Update local state for status as well (redundant if realtime works, but safe)
            setListDetails(prev => prev ? { ...prev, status: newListStatus } : null);
         }
+
+        // --- Send Notification Based on Status Change --- 
+        let notificationMessageKey = '';
+        let notificationType: 'LIST_OPENED' | 'LIST_COMPLETED' | null = null;
+
+        if (currentListStatus === 'new' && newListStatus === 'opened') {
+            notificationMessageKey = 'notifications.listStatusOpenedBy';
+            notificationType = 'LIST_OPENED';
+        } else if (currentListStatus !== 'completed' && newListStatus === 'completed') {
+            notificationMessageKey = 'notifications.listStatusCompletedBy';
+            notificationType = 'LIST_COMPLETED';
+        }
+
+        if (notificationMessageKey && notificationType) {
+            console.log(`[toggleItemPurchase] Conditions met for notification type: ${notificationType}`);
+            
+            // Fetch recipient (creator) user data for the notification
+            const { data: recipientData, error: userError } = await supabase
+              .from('users') 
+              .select('id, username') 
+              .eq('username', notificationRecipientUsername)
+              .maybeSingle();
+
+            if (userError) {
+              console.error(`[toggleItemPurchase] Error finding notification recipient (${notificationRecipientUsername}):`, userError);
+            } else if (!recipientData) {
+              console.error(`[toggleItemPurchase] Notification recipient user "${notificationRecipientUsername}" not found.`);
+            } else {
+              const notificationMessage = t(notificationMessageKey, { actor: notificationActorUsername });
+              const notificationPayload = {
+                user_id: recipientData.id,
+                message: notificationMessage,
+                type: notificationType,
+                related_list_id: listId
+              };
+              console.log('[toggleItemPurchase] Attempting to insert notification record:', notificationPayload);
+              
+              try {
+                // Insert directly into notifications table using await
+                const { error: insertError } = await supabase
+                  .from('notifications')
+                  .insert(notificationPayload);
+                  
+                console.log('[toggleItemPurchase] Code execution continued *after* awaited insert.'); // Log Checkpoint A
+
+                if (insertError) {
+                  console.error('[toggleItemPurchase] Error inserting notification record:', insertError); // Log Checkpoint B (Error)
+                } else {
+                  console.log('[toggleItemPurchase] Notification record created successfully.'); // Log Checkpoint C (Success)
+                }
+              } catch (catchError: any) {
+                console.error('[toggleItemPurchase] Exception caught during insert attempt:', catchError); // Log Checkpoint D (Exception)
+              }
+            }
+        }
+        // --- End Send Notification --- 
+
       }
       // --- End List Status Update Logic ---
 
@@ -739,7 +859,7 @@ export default function ListDetailsPage() {
     ? Math.round((listDetails.items.filter(item => item.purchased).length / listDetails.items.length) * 100)
     : 0;
 
-  // تحديث حالة القائمة
+  // تحديث حالة القائمة (الدالة القديمة - قد تكون غير مستخدمة)
   const updateListStatus = async (newStatus: string) => {
     // Ensure listDetails and current user are available
     if (!listDetails || !currentUser) return;
@@ -772,6 +892,7 @@ export default function ListDetailsPage() {
       
       // --- إنشاء إشعار لمستلم أو منشئ القائمة --- 
       // Determine recipient based on captured current list details
+      /*  COMMENTING OUT NOTIFICATION LOGIC IN THIS OLD FUNCTION
       const recipientUsername = actorUsername === currentCreator 
         ? currentRecipient 
         : currentCreator;
@@ -814,14 +935,14 @@ export default function ListDetailsPage() {
         const notificationMessage = t(messageKey, { actor: actorUsername, status: statusText });
 
         createNotification(
-            recipientData, // Pass the user object
-          notificationMessage, // Pass the translated message
+            recipientData, // Pass the full user object now
+            notificationMessage, // Pass the translated message
             'LIST_STATUS', // Use a specific type
-          null,
-          listId
+            null,
+            listId
         );
       }
-      // --- نهاية إنشاء الإشعار ---
+      */ // --- نهاية التعليق على إنشاء الإشعار ---
       
       toast.success(t('listDetails.listStatusUpdatedSuccess'));
     } catch (error) {
@@ -936,17 +1057,21 @@ export default function ListDetailsPage() {
                 </div>
               </div>
               
-              {/* شريط التقدم */}
+              {/* شريط التقدم المتحرك */}
               <div className="mb-6">
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-gray-600 dark:text-gray-300">{t('listDetails.progressLabel')}</span>
                   <span className="font-medium">{completionPercentage}%</span>
                 </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-                  <div 
-                    className="bg-blue-600 dark:bg-blue-500 h-2.5 rounded-full transition-all duration-500 ease-in-out" 
-                    style={{ width: `${completionPercentage}%` }}
-                  ></div>
+                {/* Outer container for the progress bar track */}
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden"> {/* Added overflow-hidden */} 
+                  {/* Animated progress div */}
+                  <motion.div 
+                    className="bg-blue-600 dark:bg-blue-500 h-2.5 rounded-full" // Removed transition classes
+                    initial={{ width: "0%" }} // Start from 0 width
+                    animate={{ width: `${completionPercentage}%` }} // Animate to the current percentage
+                    transition={{ type: "spring", stiffness: 100, damping: 20 }} // Added spring transition
+                  />
                 </div>
               </div>
               
@@ -978,71 +1103,96 @@ export default function ListDetailsPage() {
                 
                 {listDetails.items.length > 0 ? (
                   <ul className="space-y-2">
+                  {/* Wrap list items with AnimatePresence for exit animations */}
+                  <AnimatePresence initial={false}>
                     {listDetails.items.map((item) => (
-                      <li 
+                      <motion.li
                         key={item.id}
-                        className={`border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden transition-all duration-300 ${
-                          item.purchased 
-                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-900/50' 
-                            : 'bg-white dark:bg-gray-800'
-                        }`}
+                        layout // Enable layout animations for reordering/deletion shifts
+                        variants={itemVariants}
+                        initial="initial"
+                        animate={item.purchased ? "purchased" : "initial"}
+                        exit={{ opacity: 0, height: 0, marginBottom: 0, transition: { duration: 0.3, ease: "easeInOut" } }} // Smoother exit animation
+                        whileHover={{ 
+                          y: -3, // Slightly more lift
+                          boxShadow: theme === 'dark' 
+                            ? "0 5px 15px rgba(0, 0, 0, 0.3)" 
+                            : "0 5px 15px rgba(0, 0, 0, 0.1)" 
+                        }} // Add hover effect
+                        className={`border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-800`} 
                       >
                         <div className="flex justify-between items-center p-3">
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            {/* Check Button */}
                             <Button
                               onClick={() => toggleItemPurchase(item.id, !item.purchased)}
-                              disabled={isUpdating || (!isRecipient)}
+                              disabled={isUpdating || (!isRecipient)} // Only recipient can toggle
                               variant={item.purchased ? "default" : "outline"}
                               size="sm"
-                              className={`rounded-full h-8 w-8 p-0 flex items-center justify-center ${
-                                item.purchased 
-                                  ? 'bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800' 
-                                  : 'border-gray-300 dark:border-gray-600'
-                              } ${!isRecipient ? 'cursor-not-allowed opacity-60' : ''}`}
-                              title={isRecipient ? t('listDetails.togglePurchaseTooltip') : t('listDetails.togglePurchaseDisabledTooltip')}
+                              className={`rounded-full h-8 w-8 p-0 flex items-center justify-center shrink-0 transition-colors duration-200 ease-in-out ${ 
+                                item.purchased
+                                  ? 'bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 border-transparent' // Ensure border is transparent when filled
+                                  : 'border-gray-300 dark:border-gray-600 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-700'
+                              }`}
+                              aria-label={item.purchased ? t('listDetails.markAsNotPurchased') : t('listDetails.markAsPurchased')}
                             >
-                              <CheckCircle className={`h-4 w-4 ${item.purchased ? 'text-white' : 'text-gray-400 dark:text-gray-500'}`} />
+                              {/* Animated Checkmark */}
+                              <AnimatePresence >
+                                {item.purchased && (
+                                  <motion.div
+                                     // Enhanced animation: scale in with spring effect
+                                     initial={{ scale: 0.3, opacity: 0 }}
+                                     animate={{ scale: 1, opacity: 1 }}
+                                     exit={{ scale: 0.3, opacity: 0 }}
+                                     // Change transition to tween for smoother appearance
+                                     transition={{ type: "tween", duration: 0.3, ease: "easeInOut" }}
+                                  >
+                                     <CheckCircle className="h-4 w-4 text-white" /> 
+                                  </motion.div>
+                                )}
+                               </AnimatePresence>
                             </Button>
-                            
-                            <div>
-                              <span className={`font-medium dark:text-white ${item.purchased ? 'line-through text-gray-500 dark:text-gray-400' : ''}`}>
-                                {item.name}
-                              </span>
-                              {item.purchased && item.purchased_at && (
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                  {t('listDetails.purchasedOn', {
-                                    date: new Date(item.purchased_at).toLocaleString(i18n.language, {
-                                      year: 'numeric',
-                                      month: 'numeric',
-                                      day: 'numeric',
-                                      hour: '2-digit',
-                                      minute: '2-digit'
-                                    })
-                                  })}
-                                </p>
-                              )}
-                            </div>
+
+                            {/* Item Name Span */}
+                            <motion.span
+                              variants={nameVariants}
+                              animate={item.purchased ? "purchased" : "initial"}
+                              transition={springTransition} // Use the predefined spring transition
+                              className={`text-sm font-medium relative truncate`} 
+                            >
+                              {item.name}
+                              {/* Strikethrough Line */}
+                              <motion.div
+                                variants={lineVariants}
+                                initial="initial"
+                                animate={item.purchased ? "purchased" : "initial"}
+                                className="absolute left-0 right-0 top-1/2 h-px bg-current"
+                                style={{ transformOrigin: 'left' }} // Keep origin left for wipe effect
+                              />
+                            </motion.span>
                           </div>
-                          
-                          {/* زر حذف المنتج - يظهر فقط للمرسل */}
+
+                          {/* Delete Button - Show only for creator */}
                           {isCreator && (
-                            <Button
-                              onClick={() => deleteItem(item.id, item.name)}
-                              disabled={isUpdating}
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                             <motion.button
+                               whileHover={{ scale: 1.1, color: 'rgb(239 68 68)' }} // Add hover effect to delete button
+                               whileTap={{ scale: 0.9 }}
+                               onClick={() => deleteItem(item.id, item.name)}
+                               disabled={isUpdating}
+                               className="p-1.5 rounded-full text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-500 transition-colors shrink-0 ml-2"
+                               title={t('listDetails.deleteItem')}
                             >
                               <Trash2 className="h-4 w-4" />
-                            </Button>
+                            </motion.button>
                           )}
                         </div>
-                      </li>
+                      </motion.li>
                     ))}
+                   </AnimatePresence>
                   </ul>
                 ) : (
-                  <div className="text-center py-8 px-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <p className="text-gray-500 dark:text-gray-400">{t('listDetails.noItems')}</p>
+                  <div className="text-center py-6 text-gray-500 dark:text-gray-400">
+                    {t('listDetails.noItemsYet')}
                   </div>
                 )}
               </div>
@@ -1292,7 +1442,7 @@ function MessageSection({ listId, currentUser }: { listId: string; currentUser: 
 
       if (imageUrls.length > 0) {
         try {
-          const firstImageText = messageText || (captionText ? captionText : t('listDetails.defaultImageText'));
+      const firstImageText = messageText || (captionText ? captionText : t('listDetails.defaultImageText'));
           
           const { error: firstInsertError } = await supabase
             .from('messages')

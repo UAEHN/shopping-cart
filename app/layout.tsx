@@ -1,12 +1,19 @@
+// No 'use client' here - this remains a Server Component
 import type { Metadata, Viewport } from "next";
 import { Inter, Tajawal } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/layout/Navbar";
-import { Providers } from "./providers";
-import { Toaster } from "@/components/ui/toast";
-import { RegisterSW } from "@/components/pwa/register-sw";
-import RequestNotificationPermission from '@/components/functional/request-notification-permission';
-import I18nInitializer from '@/components/I18nInitializer';
+// Removed unused imports for client-side logic
+// import Navbar from "@/components/layout/Navbar";
+// import { Providers } from "./providers";
+// import { Toaster } from "@/components/ui/toast";
+// import { RegisterSW } from "@/components/pwa/register-sw";
+// import RequestNotificationPermission from '@/components/functional/request-notification-permission';
+// import I18nInitializer from '@/components/I18nInitializer';
+// import ShoppingSplash from "@/components/splash/ShoppingSplash";
+// import { useState, useEffect } from 'react';
+
+// Import the new Client Wrapper
+import ClientLayoutWrapper from "@/components/layout/ClientLayoutWrapper";
 
 // استيراد خط مناسب للغة العربية
 const tajawal = Tajawal({ 
@@ -20,6 +27,7 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
+// Metadata and Viewport exports are allowed here
 export const metadata: Metadata = {
   title: "عربة التسوق | Shopping Cart",
   description: "تطبيق لإنشاء وإرسال قوائم التسوق بسهولة",
@@ -47,9 +55,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Removed state and effect logic from here
+
   return (
     <html lang="ar" dir="rtl" className="scroll-smooth" suppressHydrationWarning>
       <head>
+        {/* Keep existing head content */}
         <link rel="icon" href="/icon.png" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -59,17 +70,10 @@ export default function RootLayout({
         <meta name="theme-color" content="#3b82f6" />
       </head>
       <body className={`${tajawal.variable} ${inter.variable} font-tajawal min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 antialiased`}>
-        <I18nInitializer>
-          <Providers>
-            <RequestNotificationPermission />
-            <div className="flex-1 pb-16 pt-16 max-w-screen-lg mx-auto w-full">
-              {children}
-            </div>
-            <Navbar />
-            <Toaster />
-            <RegisterSW />
-          </Providers>
-        </I18nInitializer>
+        {/* Use the Client Wrapper to handle splash screen and main content */}
+        <ClientLayoutWrapper>
+          {children}
+        </ClientLayoutWrapper>
       </body>
     </html>
   );
