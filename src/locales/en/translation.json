@@ -55,7 +55,7 @@
     "home": "Shopping Cart",
     "lists": "Lists",
     "contacts": "Contacts",
-    "profile": "Profile"
+    "settings": "Settings"
   },
   "home": {
     "welcome": "Welcome, {{name}}",
@@ -312,19 +312,22 @@
     "cancelButton": "Cancel",
     "sendButton": "Send List"
   },
-  "profile": {
+  "settings": {
+    "pageTitle": "Settings",
     "fetchError": "Error fetching profile data",
-    "userNotFound": "User not found",
     "updateSuccess": "Profile updated successfully",
     "updateError": "Error updating profile",
     "logoutSuccess": "Logged out successfully",
     "logoutError": "Error logging out",
-    "pageTitle": "Profile",
-    "defaultName": "User",
+    "userNotFound": "User not found for update",
     "personalInfoTitle": "Personal Information",
     "nameLabel": "Name",
-    "noDataPlaceholder": "-",
-    "saveChangesButton": "Save Changes"
+    "noDataPlaceholder": "Not set",
+    "saveChangesButton": "Save Changes",
+    "defaultName": "User",
+    "appSettingsTitle": "Application Settings",
+    "languageLabel": "Language",
+    "themeLabel": "Theme"
   },
   "theme": {
     "light": "Light",

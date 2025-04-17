@@ -133,8 +133,17 @@ export function NotificationsDropdown() {
 
       {/* قائمة الإشعارات */}
       {isOpen && (
-        <div className="absolute left-1/2 transform -translate-x-1/2 mt-2 w-[90vw] max-w-xs bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 z-50 sm:left-auto sm:transform-none sm:w-96 sm:max-w-none ltr:sm:right-0 rtl:sm:left-0">
-          <div className="p-3 bg-gray-50 dark:bg-gray-750 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+        <div 
+           className="
+             absolute mt-2 z-50 
+             w-[calc(100vw-2rem)] sm:w-96 /* العرض: شبه كامل للصغير، ثابت للكبير */
+             max-w-[calc(100vw-1rem)] /* حد أقصى للعرض لمنع التجاوز الطفيف */
+             bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden 
+             border border-gray-200 dark:border-gray-700 /* تعديل لون الحد لاحقًا إذا لزم الأمر */
+             ltr:right-0 rtl:left-0 /* تثبيت الموضع دائمًا تحت جانب الأيقونة */
+           "
+         >
+          <div className="p-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
             <h3 className="font-semibold text-gray-800 dark:text-gray-200">{t('notifications.dropdownTitle')}</h3>
             
             {unreadCount > 0 && (
@@ -150,7 +159,7 @@ export function NotificationsDropdown() {
             )}
           </div>
           
-          <div className="max-h-80 overflow-y-auto">
+          <div className="max-h-[65vh] overflow-y-auto">
             {isLoading ? (
               <div className="flex justify-center items-center p-5">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
@@ -190,7 +199,7 @@ export function NotificationsDropdown() {
             ) : (
               <div className="py-6 px-4 text-center">
                 <div className="flex justify-center mb-2">
-                  <Bell className="h-12 w-12 text-gray-300 dark:text-gray-600" />
+                  <Bell className="h-12 w-12 text-gray-300 dark:text-gray-500" />
                 </div>
                 <p className="text-gray-500 dark:text-gray-400 text-sm">
                   {t('notifications.noNewNotifications')}
@@ -199,9 +208,9 @@ export function NotificationsDropdown() {
             )}
           </div>
           
-          <div className="p-2 bg-gray-50 dark:bg-gray-750 border-t border-gray-200 dark:border-gray-700">
+          <div className="p-2 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
             <button 
-              className="w-full p-2 text-sm text-center text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              className="w-full p-2 text-sm text-center text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
               onClick={() => {
                 router.push('/notifications');
                 setIsOpen(false);

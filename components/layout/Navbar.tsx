@@ -6,7 +6,8 @@ import {
   HomeIcon, 
   Users, 
   User,
-  ShoppingCart
+  ShoppingCart,
+  Settings
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
@@ -24,7 +25,7 @@ const navItemConfig: NavItem[] = [
   { key: 'nav.home', href: '/home', icon: HomeIcon },
   { key: 'nav.lists', href: '/lists', icon: ShoppingCart },
   { key: 'nav.contacts', href: '/contacts', icon: Users },
-  { key: 'nav.profile', href: '/profile', icon: User },
+  { key: 'nav.settings', href: '/settings', icon: Settings },
 ];
 
 export default function Navbar() {

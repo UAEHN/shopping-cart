@@ -53,7 +53,7 @@
     "home": "عربة التسوق",
     "lists": "القوائم",
     "contacts": "الأشخاص",
-    "profile": "الملف الشخصي"
+    "settings": "الإعدادات"
   },
   "home": {
     "welcome": "مرحباً، {{name}}",
@@ -152,7 +152,7 @@
     "noReceivedListsMessage": "عندما يرسل لك الأصدقاء قوائم التسوق، ستظهر هنا",
     "createNewList": "إنشاء قائمة جديدة",
     "statusNew": "جديدة",
-    "statusOpened": "مفتوحة",
+    "statusOpened": "قيد التنفيذ",
     "statusCompleted": "مكتملة",
     "listTo": "قائمة إلى {{name}}",
     "listFrom": "قائمة من {{name}}",
@@ -321,24 +321,27 @@
     "listStatusUpdatedSuccess": "تم تحديث حالة القائمة بنجاح",
     "updateListStatusError": "حدث خطأ أثناء تحديث حالة القائمة"
   },
-  "profile": {
-    "fetchError": "حدث خطأ أثناء جلب بيانات الملف الشخصي",
-    "userNotFound": "لم يتم العثور على المستخدم",
+  "settings": {
+    "pageTitle": "الإعدادات",
+    "fetchError": "خطأ في جلب بيانات الملف الشخصي",
     "updateSuccess": "تم تحديث الملف الشخصي بنجاح",
-    "updateError": "حدث خطأ أثناء تحديث الملف الشخصي",
+    "updateError": "خطأ في تحديث الملف الشخصي",
     "logoutSuccess": "تم تسجيل الخروج بنجاح",
-    "logoutError": "حدث خطأ أثناء تسجيل الخروج",
-    "pageTitle": "الملف الشخصي",
-    "defaultName": "المستخدم",
+    "logoutError": "خطأ في تسجيل الخروج",
+    "userNotFound": "المستخدم غير موجود للتحديث",
     "personalInfoTitle": "المعلومات الشخصية",
     "nameLabel": "الاسم",
-    "noDataPlaceholder": "-",
-    "saveChangesButton": "حفظ التغييرات"
+    "noDataPlaceholder": "لم يتم التعيين",
+    "saveChangesButton": "حفظ التغييرات",
+    "defaultName": "مستخدم",
+    "appSettingsTitle": "إعدادات التطبيق",
+    "languageLabel": "اللغة",
+    "themeLabel": "المظهر"
   },
   "theme": {
     "light": "فاتح",
-    "dark": "مظلم",
+    "dark": "داكن",
     "system": "النظام",
-    "toggleTheme": "تغيير السمة"
+    "toggleTheme": "تبديل المظهر"
   }
 } 
