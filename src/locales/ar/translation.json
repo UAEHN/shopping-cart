@@ -35,9 +35,34 @@
     "signupButton": "إنشاء حساب",
     "loginPrompt": "لديك حساب بالفعل؟",
     "loginLink": "تسجيل الدخول",
+    "createAccountLink": "إنشاء حساب",
     "logout": "تسجيل الخروج",
     "logoutConfirmTitle": "تأكيد تسجيل الخروج",
-    "logoutConfirmDescription": "هل أنت متأكد أنك تريد تسجيل الخروج؟"
+    "logoutConfirmDescription": "هل أنت متأكد أنك تريد تسجيل الخروج؟",
+    "resetPassword": "إعادة تعيين كلمة المرور",
+    "forgotPassword": "هل نسيت كلمة المرور؟",
+    "usernameOrEmailLabel": "اسم المستخدم أو البريد الإلكتروني",
+    "usernameOrEmailPlaceholder": "أدخل اسم المستخدم أو بريدك الإلكتروني",
+    "orContinueWith": "أو المتابعة باستخدام",
+    "loginWithGoogle": "تسجيل الدخول باستخدام Google",
+    "signUpWithGoogle": "إنشاء حساب باستخدام Google",
+    "confirmPasswordLabel": "تأكيد كلمة المرور",
+    "confirmPasswordPlaceholder": "أعد إدخال كلمة المرور",
+    "passwordMismatch": "كلمتا المرور غير متطابقتين.",
+    "usernameTaken": "اسم المستخدم هذا مأخوذ بالفعل.",
+    "usernameCheckError": "حدث خطأ أثناء التحقق من اسم المستخدم.",
+    "usernameCheckPendingOrRunning": "جاري التحقق من اسم المستخدم...",
+    "registerSuccessCheckEmail": "تم التسجيل بنجاح! يرجى التحقق من بريدك الإلكتروني لتفعيل الحساب.",
+    "googleSignInError": "حدث خطأ أثناء تسجيل الدخول باستخدام Google.",
+    "loginFailedGeneric": "فشل تسجيل الدخول. يرجى التحقق من اسم المستخدم/البريد الإلكتروني وكلمة المرور.",
+    "signupViewPlaceholder": "واجهة إنشاء الحساب قيد الإنشاء...",
+    "completeProfileTitle": "أكمل ملفك الشخصي",
+    "completeProfileDescription": "اختر اسم مستخدم فريد للمتابعة",
+    "chooseUsernameLabel": "اختر اسم المستخدم",
+    "usernameHint": "مسموح فقط بالحروف والأرقام الإنجليزية والشرطة السفلية (_)",
+    "saveUsernameButton": "حفظ اسم المستخدم والمتابعة",
+    "usernameSetSuccess": "تم تعيين اسم المستخدم بنجاح!",
+    "usernameSetFailed": "فشل تعيين اسم المستخدم."
   },
   "register": {
     "title": "تسجيل حساب جديد",
@@ -78,22 +103,27 @@
     "noNotifications": "لا توجد إشعارات جديدة.",
     "markAsRead": "تحديد كمقروء",
     "notificationSent": "أرسل لك {{sender}} قائمة جديدة: {{listName}}",
-    "notificationPurchased": "قام {{purchaser}} بتحديث عنصر في قائمة {{listName}}"
+    "notificationPurchased": "قام {{purchaser}} بتحديث عنصر في قائمة {{listName}}",
+    "recentNotifications": "آخر الإشعارات",
+    "viewAllNotifications": "عرض كل الإشعارات"
   },
   "common": {
-    "appName": "عربة التسوق",
-    "loading": "جاري التحميل...",
+    "appName": "قوائم التسوق",
+    "appDescription": "شارك قوائم التسوق بسهولة مع الأصدقاء والعائلة.",
+    "loading": "جار التحميل...",
     "save": "حفظ",
     "cancel": "إلغاء",
     "delete": "حذف",
     "confirm": "تأكيد",
     "close": "إغلاق",
     "error": "حدث خطأ",
-    "success": "تم بنجاح",
+    "success": "نجاح",
     "add": "إضافة",
     "search": "بحث...",
     "unknownTime": "وقت غير معروف",
-    "adding": "جاري الإضافة..."
+    "adding": "جاري الإضافة...",
+    "required": "هذا الحقل مطلوب",
+    "back": "رجوع"
   },
   "notifications": {
     "loading": "جاري تحميل الإشعارات...",
@@ -112,7 +142,13 @@
     "listStatusCompletedBy": "قام {{actor}} بإكمال قائمة التسوق",
     "listStatusOpenedBy": "بدأ {{actor}} العمل على قائمة التسوق",
     "listStatusResetBy": "قام {{actor}} بإعادة تعيين حالة قائمة التسوق",
-    "listStatusUpdatedBy": "قام {{actor}} بتحديث حالة القائمة إلى {{status}}"
+    "listStatusUpdatedBy": "قام {{actor}} بتحديث حالة القائمة إلى {{status}}",
+    "allRead": "جميع الإشعارات مقروءة.",
+    "errorLoading": "خطأ في تحميل الإشعارات.",
+    "ariaLabel": "فتح الإشعارات",
+    "hideError": "حدث خطأ أثناء محاولة إخفاء الإشعار.",
+    "hideAll": "إخفاء الكل",
+    "hideAllError": "حدث خطأ أثناء محاولة إخفاء جميع الإشعارات."
   },
   "contacts": {
     "loadError": "حدث خطأ أثناء تحميل جهات الاتصال.",
@@ -133,7 +169,7 @@
     "addSuccess": "تمت إضافة جهة الاتصال بنجاح.",
     "addError": "حدث خطأ أثناء إضافة جهة الاتصال.",
     "addErrorNotFound": "لم يتم العثور على مستخدم بهذا الاسم.",
-    "addErrorAlreadyExists": "جهة الاتصال هذه موجودة بالفعل.",
+    "addErrorAlreadyExists": "هذا المستخدم موجود بالفعل في جهات اتصالك.",
     "addErrorSelf": "لا يمكنك إضافة نفسك كجهة اتصال.",
     "addErrorEmpty": "الرجاء إدخال اسم المستخدم الخاص بجهة الاتصال",
     "addRegisteredUsers": "يمكنك إضافة المستخدمين المسجلين في النظام كجهات اتصال",
@@ -342,6 +378,6 @@
     "light": "فاتح",
     "dark": "داكن",
     "system": "النظام",
-    "toggleTheme": "تبديل المظهر"
+    "toggleTheme": "تبديل الثيم"
   }
 } 

@@ -10,9 +10,11 @@ import {
   ClipboardCheck, 
   Check, 
   AlertCircle, 
-  CheckCircle 
+  CheckCircle,
+  X,
+  Trash2
 } from 'lucide-react';
-import { supabase } from '@/services/supabase';
+import { supabase, hideNotification as hideNotificationService, hideAllNotifications } from '@/services/supabase';
 import { toast } from '@/components/ui/toast';
 import { useNotifications, Notification, NotificationType } from '@/hooks/useRealtime';
 import { formatDistanceToNow } from 'date-fns';
@@ -25,6 +27,7 @@ export default function NotificationsPage() {
   const { t, i18n } = useTranslation();
   const [userId, setUserId] = useState<string | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
+  const [displayedNotifications, setDisplayedNotifications] = useState<Notification[]>([]);
   
   useEffect(() => {
     const checkAuth = async () => {
@@ -51,12 +54,16 @@ export default function NotificationsPage() {
   }, [router, t]);
   
   const { 
-    notifications, 
+    notifications: fetchedNotifications,
     unreadCount, 
     isLoading: isLoadingNotifications, 
     markAsRead,
     markAllAsRead
   } = useNotifications(userId, 50);
+
+  useEffect(() => {
+    setDisplayedNotifications(fetchedNotifications.filter(n => !n.is_hidden));
+  }, [fetchedNotifications]);
   
   const getNotificationIcon = (type: NotificationType) => {
     switch (type) {
@@ -92,6 +99,36 @@ export default function NotificationsPage() {
       router.push(`/lists/${notification.related_list_id}`);
     }
   };
+
+  const handleHideNotification = async (notificationId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    console.log(`إخفاء الإشعار (صفحة): ${notificationId}`);
+
+    setDisplayedNotifications(prev => prev.filter(n => n.id !== notificationId));
+
+    const { error } = await hideNotificationService(notificationId);
+    if (error) {
+      console.error("Error hiding notification (page):", error);
+      setDisplayedNotifications(fetchedNotifications.filter(n => !n.is_hidden));
+      toast.error(t('notifications.hideError'));
+    } else {
+      console.log(`تم إخفاء الإشعار بنجاح (صفحة): ${notificationId}`);
+    }
+  };
+
+  const handleHideAllNotifications = async () => {
+    console.log('إخفاء جميع الإشعارات (صفحة)');
+    const currentlyDisplayed = [...displayedNotifications];
+    setDisplayedNotifications([]);
+    const { error } = await hideAllNotifications();
+    if (error) {
+      console.error("Error hiding all notifications (page):", error);
+      setDisplayedNotifications(currentlyDisplayed);
+      toast.error(t('notifications.hideAllError'));
+    } else {
+      console.log('تم إخفاء جميع الإشعارات بنجاح (صفحة)');
+    }
+  };
   
   const isLoading = isLoadingUser || isLoadingNotifications;
   
@@ -101,19 +138,34 @@ export default function NotificationsPage() {
       
       <div className="mt-6 space-y-4">
         {unreadCount > 0 && (
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {t('notifications.unreadCountMessage', { count: unreadCount })}
+          <div className="flex justify-between items-center gap-2 flex-wrap">
+            <p className="text-sm text-gray-600 dark:text-gray-400 w-full sm:w-auto mb-2 sm:mb-0">
+              {unreadCount > 0 ? t('notifications.unreadCountMessage', { count: unreadCount }) : t('notifications.allRead')}
             </p>
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="text-xs flex items-center gap-1"
-              onClick={() => markAllAsRead()}
-            >
-              <CheckCircle className="h-3 w-3" />
-              <span>{t('notifications.markAllAsRead')}</span>
-            </Button>
+            <div className="flex gap-2">
+              {unreadCount > 0 && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="text-xs flex items-center gap-1"
+                  onClick={() => markAllAsRead()}
+                  disabled={isLoading}
+                >
+                  <CheckCircle className="h-3 w-3" />
+                  <span>{t('notifications.markAllAsRead')}</span>
+                </Button>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="text-xs flex items-center gap-1 text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 border-red-300 dark:border-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                onClick={handleHideAllNotifications}
+                disabled={isLoading}
+              >
+                <Trash2 className="h-3 w-3" />
+                <span>{t('notifications.hideAll')}</span>
+              </Button>
+            </div>
           </div>
         )}
         
@@ -133,13 +185,15 @@ export default function NotificationsPage() {
               </Card>
             ))}
           </div>
-        ) : notifications.length > 0 ? (
+        ) : displayedNotifications.length > 0 ? (
           <div className="space-y-3">
-            {notifications.map((notification) => (
+            {displayedNotifications.map((notification) => (
               <Card 
                 key={notification.id}
-                className={`rounded-xl overflow-hidden border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-300 cursor-pointer
-                  ${!notification.is_read ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800/30' : ''}`}
+                className={`
+                  relative group rounded-xl overflow-hidden border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-300 
+                  ${!notification.is_read ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800/30' : ''}
+                `}
                 onClick={() => handleNotificationClick(notification)}
               >
                 <CardContent className="p-4">
@@ -156,10 +210,27 @@ export default function NotificationsPage() {
                       </p>
                     </div>
                     {!notification.is_read && (
-                      <span className="flex-shrink-0 w-2 h-2 rounded-full bg-blue-500"></span>
+                      <span className="flex-shrink-0 w-2 h-2 rounded-full bg-blue-500 self-center mr-4"></span>
                     )}
                   </div>
                 </CardContent>
+                 <Button
+                   variant="ghost"
+                   size="icon"
+                   className={`
+                     absolute top-2 
+                     ltr:right-2 rtl:left-2 
+                     h-7 w-7 rounded-full 
+                     text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300
+                     bg-white/50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-600
+                     opacity-0 group-hover:opacity-100 focus:opacity-100 
+                     transition-opacity
+                   `}
+                   onClick={(e) => handleHideNotification(notification.id, e)}
+                   aria-label={t('common.delete')} 
+                 >
+                   <X className="h-4 w-4" />
+                 </Button>
               </Card>
             ))}
           </div>

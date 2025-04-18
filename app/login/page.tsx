@@ -7,12 +7,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { signIn, signUp } from '@/services/supabase';
+import { signIn, signUp, checkUsernameAvailability } from '@/services/supabase';
 import { toast } from '@/components/ui/toast';
 import { AppLogo } from '@/components/ui/app-logo';
-import { Eye, EyeOff, Mail, Lock, User, UserCircle, ArrowRight, UserRound, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, UserCircle, ArrowRight, UserRound, Loader2, Check, AlertCircle } from 'lucide-react';
 // import LanguageSwitcher from '@/components/LanguageSwitcher'; // Removed import
 import { motion } from 'framer-motion';
+import { useDebounce } from '@/hooks/useDebounce'; // Assuming a debounce hook exists
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -22,69 +23,144 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   
   // Form fields
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [name, setName] = useState('');
+  
+  // Username availability check state
+  const [usernameToCheck, setUsernameToCheck] = useState('');
+  const debouncedUsername = useDebounce(usernameToCheck, 500); // Debounce check
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+  const [isUsernameAvailable, setIsUsernameAvailable] = useState<boolean | null>(null);
+  const [usernameCheckError, setUsernameCheckError] = useState<string | null>(null);
   
   useEffect(() => {
     setIsMounted(true);
   }, []);
   
+  // Effect to check username availability
+  useEffect(() => {
+    if (!debouncedUsername || debouncedUsername.length < 3) {
+      setIsUsernameAvailable(null); // Reset if too short or empty
+      setUsernameCheckError(null);
+      setIsCheckingUsername(false);
+      return;
+    }
+
+    let isCancelled = false;
+    const check = async () => {
+      setIsCheckingUsername(true);
+      setUsernameCheckError(null);
+      setIsUsernameAvailable(null);
+      try {
+        const available = await checkUsernameAvailability(debouncedUsername);
+        if (!isCancelled) {
+          setIsUsernameAvailable(available);
+          if (!available) {
+             setUsernameCheckError(t('auth.usernameTaken')); // Add translation key
+          }
+        }
+      } catch (e) {
+        console.error("Error during username check:", e);
+        if (!isCancelled) {
+          const checkErrorMsg = e instanceof Error ? e.message : t('auth.usernameCheckError');
+          setUsernameCheckError(checkErrorMsg);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsCheckingUsername(false);
+        }
+      }
+    };
+
+    check();
+
+    return () => {
+      isCancelled = true; // Prevent state updates if component unmounts or username changes quickly
+    };
+  }, [debouncedUsername, t]);
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+    setUsernameCheckError(null);
     
     try {
       if (isLogin) {
-        // تسجيل الدخول
-        const { data, error: signInError } = await signIn(email, password, rememberMe);
+        // Login Flow
+        const { data, error: signInError } = await signIn(identifier, password);
         
         if (signInError) {
-          toast.error(t('auth.loginFailed') + signInError.message);
-          throw new Error(signInError.message);
+          toast.error(signInError.message || t('auth.loginFailedGeneric'));
+          throw signInError;
         }
         
-        if (!data.user) {
-          toast.error(t('auth.loginError'));
-          throw new Error(t('auth.loginError'));
+        // Check if data or data.user is null/undefined
+        if (!data?.user) { 
+          const genericError = t('auth.loginError');
+          toast.error(genericError);
+          throw new Error(genericError);
         }
         
         toast.success(t('auth.loginSuccess'));
-        router.push('/home');
+        router.push('/home'); // Redirect on successful login
       } else {
-        // إنشاء حساب جديد
+        // Sign Up Flow
+        if (password !== confirmPassword) {
+          throw new Error(t('auth.passwordMismatch'));
+        }
         if (!username || username.length < 3) {
-          toast.warning(t('auth.usernameWarning'));
           throw new Error(t('auth.usernameWarning'));
         }
+        // Explicitly check for availability status from the state
+        if (isUsernameAvailable === false) { 
+          throw new Error(t('auth.usernameTaken'));
+        }
+        // Optionally, prevent submission if username is still being checked or hasn't been checked
+        if (isUsernameAvailable === null || isCheckingUsername) { 
+            throw new Error(t('auth.usernameCheckPendingOrRunning')); // New translation key needed
+        }
         
-        const { data, error: signUpError } = await signUp(email, password, username);
+        // Call signUp and handle potential null data
+        const result = await signUp(email, password, username);
+        const signUpError = result.error;
+        const data = result.data;
         
         if (signUpError) {
-          toast.error(t('auth.registerFailed') + signUpError.message);
-          throw new Error(signUpError.message);
+          toast.error(signUpError.message || t('auth.registerFailed'));
+          throw signUpError;
         }
         
-        // تحديث بيانات المستخدم (الاسم) في حالة نجاح التسجيل
-        if (data.user) {
-          // هنا يمكن إضافة كود لتحديث الاسم وإضافة المستخدم في جدول users
-          
-          toast.success(t('auth.registerSuccess'));
-          // التوجيه إلى الصفحة الرئيسية
-          router.push('/home');
-        } else {
-          toast.error(t('auth.registerError'));
-          throw new Error(t('auth.registerError'));
+        // Check if data or data.user is null/undefined explicitly after checking error
+        if (!data?.user) { 
+          const genericError = t('auth.registerError');
+          toast.error(genericError);
+          throw new Error(genericError);
         }
+        
+        // User registration successful (confirmation might be needed depending on Supabase settings)
+        toast.success(t('auth.registerSuccessCheckEmail')); 
+        setIsLogin(true); // Switch to login view after successful signup? Or redirect?
+        // Consider redirecting to a profile setup page or home after signup
+        // router.push('/profile-setup'); // Example redirect
+        router.push('/home'); // Redirect to home for now
+
       }
     } catch (err: unknown) {
       console.error('Auth error:', err);
-      setError(err instanceof Error ? err.message : t('auth.unexpectedError'));
+      const message = err instanceof Error ? err.message : t('auth.unexpectedError');
+      setError(message);
+      if (message === t('auth.usernameTaken')) {
+        setUsernameCheckError(message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -94,12 +170,26 @@ export default function LoginPage() {
     setIsLogin(!isLogin);
     setError(null);
     // إعادة تعيين الحقول عند التبديل بين وضعي الدخول والتسجيل
-    if (isLogin) {
-      setUsername('');
-      setName('');
-    }
+    setIdentifier('');
+    setPassword('');
+    setConfirmPassword('');
+    setEmail('');
+    setUsername('');
+    setUsernameToCheck('');
+    setIsUsernameAvailable(null);
+    setUsernameCheckError(null);
+    setIsCheckingUsername(false);
   };
   
+  // Handle username input change for availability check
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newUsername = e.target.value;
+      setUsername(newUsername);
+      setUsernameToCheck(newUsername); // Update the value to be debounced
+      setIsUsernameAvailable(null); // Reset availability status on change
+      setUsernameCheckError(null);
+  }
+
   return (
     <div className="min-h-screen w-full flex flex-col p-4 bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800">
       <div className="mb-8 text-center mt-10">
@@ -133,28 +223,29 @@ export default function LoginPage() {
           {isLogin && (
             <>
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center" htmlFor="email">
-                  <Mail className="h-4 w-4 mr-1.5 text-gray-500 dark:text-gray-400" />
-                  {t('auth.emailLabel')}
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center" htmlFor="identifier">
+                  <UserCircle className="h-4 w-4 mr-1.5 text-gray-500 dark:text-gray-400" />
+                  {t('auth.usernameOrEmailLabel')}
                 </Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <UserCircle className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
-                    id="email"
-                    type="email"
-                    placeholder={t('auth.emailPlaceholder')}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    id="identifier"
+                    type="text"
+                    placeholder={t('auth.usernameOrEmailPlaceholder')}
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
                     required
                     className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500 transition-all pr-4"
-                    dir="ltr"
+                    autoCapitalize="none"
+                    autoCorrect="off"
                   />
                 </div>
               </div>
               
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center" htmlFor="password">
-                  <Lock className="h-4 w-4 ml-1.5 text-gray-500 dark:text-gray-400" />
+                  <Lock className="h-4 w-4 mr-1.5 text-gray-500 dark:text-gray-400" />
                   {t('auth.passwordLabel')}
                 </Label>
                 <div className="relative">
@@ -197,6 +288,37 @@ export default function LoginPage() {
           
           {!isLogin && (
             <>
+              <div className="space-y-2">
+                <Label htmlFor="username-register" className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('auth.usernameLabel')}</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="username-register"
+                    placeholder={t('auth.usernamePlaceholder')}
+                    type="text"
+                    autoCapitalize="none"
+                    autoComplete="username"
+                    autoCorrect="off"
+                    value={username}
+                    onChange={handleUsernameChange}
+                    className={`pl-10 pr-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500 transition-all ${usernameCheckError ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : isUsernameAvailable === true ? 'border-green-500 focus:ring-green-500 focus:border-green-500' : ''}`}
+                    required
+                    minLength={3}
+                    dir="ltr"
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4">
+                    {isCheckingUsername ? (
+                        <Loader2 className="animate-spin text-muted-foreground" />
+                    ) : isUsernameAvailable === true ? (
+                        <Check className="text-green-500" />
+                    ) : usernameCheckError ? (
+                        <AlertCircle className="text-red-500" />
+                    ) : null}
+                  </div>
+                </div>
+                {usernameCheckError && <p className="text-xs text-red-500 dark:text-red-400 pt-1">{usernameCheckError}</p>}
+              </div>
+              
               <div className="space-y-2">
                 <Label htmlFor="email-register" className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('auth.emailLabel')}</Label>
                 <div className="relative">
@@ -244,41 +366,32 @@ export default function LoginPage() {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="username-register" className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('auth.usernameLabel')}</Label>
+                <Label htmlFor="confirm-password-register" className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('auth.confirmPasswordLabel')}</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
-                    id="username-register"
-                    placeholder={t('auth.usernamePlaceholder')}
-                    type="text"
-                    autoCapitalize="none"
-                    autoComplete="username"
-                    autoCorrect="off"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    id="confirm-password-register"
+                    placeholder={t('auth.confirmPasswordPlaceholder')}
+                    type={showConfirmPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className={`pl-10 pr-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500 transition-all ${password && confirmPassword && password !== confirmPassword ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''}`}
                     required
                     dir="ltr"
                   />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    aria-label={showConfirmPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="name-register" className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('auth.nameLabel')}</Label>
-                <div className="relative">
-                  <UserRound className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="name-register"
-                    placeholder={t('auth.namePlaceholder')}
-                    type="text"
-                    autoCapitalize="words"
-                    autoComplete="name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                    required
-                  />
-                </div>
+                {password && confirmPassword && password !== confirmPassword && (
+                  <p className="text-xs text-red-500 dark:text-red-400 pt-1">{t('auth.passwordMismatch')}</p>
+                )}
               </div>
             </>
           )}
@@ -308,16 +421,11 @@ export default function LoginPage() {
               </span>
             </Button>
             
-            <div className="flex items-center justify-between w-full text-center">
-              <Button
-                type="button"
-                variant="link"
-                className="text-sm text-muted-foreground underline-offset-4 hover:text-primary hover:underline p-0 h-auto"
-                onClick={toggleView}
-              >
-                {isLogin ? t('auth.toggleToRegister') : t('auth.toggleToLogin')}
-              </Button>
-              {/* <LanguageSwitcher /> */ }
+            <div className="text-center text-sm mt-4">
+              {isLogin ? t('auth.signupPrompt') : t('auth.loginPrompt')}{' '}
+              <button type="button" onClick={toggleView} className="font-semibold text-primary hover:underline">
+                {isLogin ? t('auth.createAccountLink') : t('auth.loginLink')}
+              </button>
             </div>
           </div>
         </form>

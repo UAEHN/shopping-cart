@@ -202,7 +202,12 @@ export default function ListsPage() {
     let colorClasses = 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
     switch (status) {
       case 'new': statusText = t('lists.statusNew'); Icon = Package; colorClasses = 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'; break;
-      case 'opened': statusText = t('lists.statusOpened'); Icon = ShoppingCart; colorClasses = 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300'; break;
+      case 'opened':
+      case 'in_progress': 
+        statusText = t('lists.statusOpened'); 
+        Icon = ShoppingCart; 
+        colorClasses = 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300'; 
+        break;
       case 'completed': statusText = t('lists.statusCompleted'); Icon = CheckCircle; colorClasses = 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300'; break;
       default: statusText = status; Icon = AlertCircle;
     }
@@ -329,18 +334,19 @@ export default function ListsPage() {
     const formatDate = (dateString: string) => {
       try {
         const date = parseISO(dateString);
-        return format(date, 'P', { locale: dateLocale });
+        return formatDistanceToNow(date, { addSuffix: true, locale: dateLocale });
       } catch (error) {
-        console.error("Error formatting date:", dateString, error);
-        return dateString;
+        console.error("Error formatting relative date:", dateString, error);
+        return t('common.unknownTime');
       }
     };
 
-    let progressBarColor = 'bg-blue-500 dark:bg-blue-600';
+    // Determine progress bar color based on status
+    let progressBarColor = 'bg-blue-500 dark:bg-blue-600'; // Default blue for 'new'
     if (list.status === 'completed') {
-        progressBarColor = 'bg-green-500 dark:bg-green-600';
-    } else if (list.status === 'opened') {
-        progressBarColor = 'bg-yellow-500 dark:bg-yellow-600';
+      progressBarColor = 'bg-green-500 dark:bg-green-600';
+    } else if (list.status === 'opened' || list.status === 'in_progress') {
+      progressBarColor = 'bg-yellow-500 dark:bg-yellow-600';
     }
 
     return (
@@ -365,7 +371,7 @@ export default function ListsPage() {
                     {completedItemsCount > 0 && (
                       <span className="flex items-center gap-1 shrink-0"><span className="hidden sm:inline mx-1">•</span><span>{t('lists.purchased', { count: completedItemsCount })}</span></span>
                     )}
-                    <span className="flex items-center gap-1 shrink-0"><span className="hidden sm:inline mx-1">•</span><span>{formatDate(list.created_at)}</span></span>
+                    <span className="flex items-center gap-1 shrink-0"><span className="hidden sm:inline mx-1">•</span><span>{formatDate(list.updated_at)}</span></span>
                   </div>
                 </div>
               </div>

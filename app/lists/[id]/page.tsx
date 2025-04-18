@@ -175,6 +175,8 @@ function ImagePreviewModal({
 const getItemVariants = (theme: string | undefined) => ({
   initial: {
     opacity: 1,
+    // Explicitly set initial background color based on theme
+    backgroundColor: theme === 'dark' ? 'rgb(31 41 55)' : 'rgb(255 255 255)', // Corresponds to bg-gray-800 and bg-white
     transition: { duration: 0.4 }
   },
   purchased: {

@@ -11,7 +11,7 @@ import { toast, clearAllToasts } from '@/components/ui/toast';
 import { supabase } from '@/services/supabase';
 import { ShoppingCart, Plus, X, Send, Trash2, RefreshCw } from 'lucide-react';
 import SelectRecipientDialog from '@/components/lists/select-recipient-dialog';
-import { createNotification } from '@/utils/notifications';
+import { createNotification, type CreateNotificationParams } from '@/services/notifications';
 import { useTranslation } from 'react-i18next';
 
 interface ListItem {
@@ -202,14 +202,21 @@ export default function CreateListPage() {
         setIsSending(false);
         return;
       }
+      
+      console.log("List ID for notification:", listId);
+      
       try {
-        await createNotification(
-          recipient,
-          t('notifications.newListReceived', { sender: currentUserUsername }),
-          'NEW_LIST',
-          listId,
-          recipient.id
-        );
+        const notificationParams: CreateNotificationParams = {
+          recipientUserId: recipient.id,
+          message: t('notifications.newListReceived', { sender: currentUserUsername }),
+          type: 'NEW_LIST',
+          relatedListId: listId
+        };
+
+        console.log("Calling createNotification with params:", notificationParams);
+
+        await createNotification(notificationParams);
+
         console.log('Notification creation attempt finished.');
       } catch (notificationError) {
         console.error('Error creating notification (will proceed anyway):', notificationError);

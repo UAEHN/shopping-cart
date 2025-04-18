@@ -16,6 +16,7 @@ export interface Notification {
   related_list_id?: string;
   type: NotificationType;
   is_read: boolean;
+  is_hidden: boolean;
   created_at: string;
 }
 
@@ -196,24 +197,25 @@ export const useNotifications = (userId: string | null, limit: number = 10) => {
       try {
         const { data, error: fetchError } = await supabase
           .from('notifications')
-          .select('*', { count: 'exact' }) // Use count for unread calculation later if needed
+          .select('id, user_id, message, related_item_id, related_list_id, type, is_read, is_hidden, created_at', { count: 'exact' })
           .eq('user_id', userId)
+          .eq('is_hidden', false)
           .order('created_at', { ascending: false })
           .limit(limit);
 
-        if (!isMounted) return; // Don't update state if component unmounted
+        if (!isMounted) return;
 
         if (fetchError) {
           console.error('useNotifications: Error fetching notifications:', fetchError);
           setError(fetchError.message);
-          setNotifications([]); // Clear notifications on error
+          setNotifications([]);
           setUnreadCount(0);
         } else {
-          console.log(`useNotifications: Fetched ${data?.length || 0} notifications for user ${userId}:`, data);
+          console.log(`useNotifications: Fetched ${data?.length || 0} non-hidden notifications for user ${userId}:`, data);
           setNotifications(data as Notification[]);
           const unread = data.filter(n => !n.is_read).length;
           setUnreadCount(unread);
-          console.log(`useNotifications: Initial unread count: ${unread}`);
+          console.log(`useNotifications: Initial unread count (non-hidden): ${unread}`);
         }
       } catch (err: any) {
         if (isMounted) {
@@ -236,9 +238,9 @@ export const useNotifications = (userId: string | null, limit: number = 10) => {
     console.log(`useNotifications: Setting up channel: ${channelName}`);
 
     // Remove existing channel first if any (safer approach)
-    supabase.channel(channelName, { // Provide config with broadcast and presence keys if needed
+    channel = supabase.channel(channelName, { // Assign to channel variable
         config: {
-          broadcast: { self: true }, // Example config
+          broadcast: { self: true },
         },
       })
       .on(
@@ -250,24 +252,18 @@ export const useNotifications = (userId: string | null, limit: number = 10) => {
           filter: `user_id=eq.${userId}`
         },
         (payload) => {
-          console.log(`useNotifications: New notification received for user ${userId}:`, payload.new);
+          if (!isMounted) return;
           const newNotification = payload.new as Notification;
-
-          // Add to the beginning of the list & update unread count
-          if (isMounted) { // Check if component is still mounted
-            setNotifications(prev => [newNotification, ...prev.slice(0, limit - 1)]);
-            setUnreadCount(prev => prev + 1);
-
-            // Play notification sound
-            try {
-              const audio = new Audio('/sounds/notification.mp3'); // Path relative to public folder
-              audio.play().catch(playError => {
-                // Autoplay might be blocked by the browser initially
-                // Log the error but don't crash
-                console.warn('Audio play failed (possibly due to autoplay restrictions):', playError);
-              });
-            } catch (audioError) {
-              console.error('Error creating or playing audio:', audioError);
+          console.log('useNotifications: Received INSERT event:', newNotification);
+          // Add only if not hidden
+          if (!newNotification.is_hidden) {
+            setNotifications((prev) => [
+              newNotification,
+              ...prev.filter((n) => n.id !== newNotification.id), // Avoid duplicates
+            ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, limit));
+            
+            if (!newNotification.is_read) {
+               setUnreadCount((prev) => prev + 1);
             }
           }
         }
@@ -283,38 +279,53 @@ export const useNotifications = (userId: string | null, limit: number = 10) => {
         (payload) => {
           if (!isMounted) return;
           const updatedNotification = payload.new as Notification;
-          console.log('useNotifications: Received updated notification:', updatedNotification);
-          setNotifications(prev =>
-            prev.map(n => n.id === updatedNotification.id ? updatedNotification : n)
-          );
-          // Recalculate unread count after update
-          setNotifications(currentNotifications => {
-             const newUnreadCount = currentNotifications.filter(n => !n.is_read).length;
-             if (newUnreadCount !== unreadCount) { // Only update state if changed
-                setUnreadCount(newUnreadCount);
-                console.log(`useNotifications: Unread count updated to: ${newUnreadCount}`);
-             }
-             return currentNotifications; // Important: return the current state for map iteration
+          const oldNotification = payload.old as Partial<Notification>; // Old might not have all fields
+          console.log('useNotifications: Received UPDATE event:', updatedNotification, 'Old:', oldNotification);
+
+          setNotifications((prev) => {
+            const existingIndex = prev.findIndex(n => n.id === updatedNotification.id);
+            
+            // If the notification becomes hidden, remove it from the list
+            if (updatedNotification.is_hidden) {
+                 console.log('Notification became hidden, removing from list:', updatedNotification.id);
+                 return prev.filter(n => n.id !== updatedNotification.id);
+            } 
+            // If it wasn't hidden and doesn't exist in list (e.g., due to limit), add it
+            else if (existingIndex === -1) {
+                 console.log('Notification updated but not hidden and not in list, adding:', updatedNotification.id);
+                 return [
+                    updatedNotification, 
+                    ...prev
+                 ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, limit);
+            }
+            // Otherwise, update the existing notification in the list
+            else {
+                console.log('Updating existing notification in list:', updatedNotification.id);
+                const newList = [...prev];
+                newList[existingIndex] = updatedNotification;
+                return newList;
+            }
           });
+
+          // Update unread count based on is_read changes
+          const wasRead = oldNotification.is_read === true;
+          const isRead = updatedNotification.is_read === true;
+          const wasHidden = oldNotification.is_hidden === true;
+          const isHidden = updatedNotification.is_hidden === true;
+
+          if (!isRead && wasRead && !isHidden) setUnreadCount((prev) => prev + 1); // Became unread
+          if (isRead && !wasRead && !isHidden) setUnreadCount((prev) => Math.max(0, prev - 1)); // Became read
+          if (!wasHidden && isHidden && !isRead) setUnreadCount((prev) => Math.max(0, prev - 1)); // Became hidden while unread
+          if (wasHidden && !isHidden && !isRead) setUnreadCount((prev) => prev + 1); // Became visible while unread
         }
       )
       .subscribe((status, err) => {
-        console.log(`useNotifications: Channel ${channelName} subscription status: ${status}`);
-        if (!isMounted) return;
-
-        if (status === 'SUBSCRIBED') {
-          console.log(`useNotifications: Successfully subscribed to channel: ${channelName}`);
-          setError(null); // Clear error on successful subscription
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error(`useNotifications: Channel subscription error/timeout. Status: ${status}`, err);
-          setError(`Subscription failed: ${status}. ${err?.message || ''}`);
-          // Consider implementing a retry mechanism with backoff here if needed
-          // For now, just log the error. Automatic retries might be handled by the SDK.
-        } else if (status === 'CLOSED') {
-           console.warn(`useNotifications: Channel ${channelName} was closed.`);
-           // The channel might close intentionally on cleanup or due to network issues.
-           // No automatic retry here unless specifically required.
-        }
+          if (err) {
+             console.error(`useNotifications: Realtime subscription error for ${channelName}:`, err);
+             if (isMounted) setError('Failed to subscribe to notification updates.');
+          } else {
+             console.log(`useNotifications: Realtime subscription status for ${channelName}: ${status}`);
+          }
       });
 
       // Store the channel instance

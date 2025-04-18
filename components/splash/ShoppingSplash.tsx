@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Apple, Milk, Carrot, Banana } from 'lucide-react';
+import { Apple, Milk, Carrot, Banana, Grape, Cherry, Sandwich, Egg } from 'lucide-react';
 // استيراد خط Cairo
 import { Cairo } from 'next/font/google';
 
@@ -14,10 +14,15 @@ const cairo = Cairo({
 
 // إعادة تعريف المنتجات
 const products = [
-  { id: 1, Icon: Apple, initialX: '35%', color: 'text-red-500' },
-  { id: 2, Icon: Milk, initialX: '45%', color: 'text-blue-300' },
-  { id: 3, Icon: Carrot, initialX: '55%', color: 'text-orange-500' },
-  { id: 4, Icon: Banana, initialX: '65%', color: 'text-yellow-400' },
+  { id: 1, Icon: Apple, initialX: '15%', color: 'text-red-500' },    // أقصى اليسار
+  { id: 2, Icon: Milk, initialX: '85%', color: 'text-blue-300' },   // أقصى اليمين
+  { id: 3, Icon: Carrot, initialX: '90%', color: 'text-orange-500' }, // يمين
+  { id: 4, Icon: Banana, initialX: '10%', color: 'text-yellow-400' },  // يسار
+  { id: 5, Icon: Grape, initialX: '20%', color: 'text-purple-500' },   // يسار
+  { id: 6, Icon: Cherry, initialX: '80%', color: 'text-pink-500' },     // يمين
+  { id: 7, Icon: Sandwich, initialX: '95%', color: 'text-yellow-700' },   // أقصى اليمين
+  { id: 8, Icon: Egg, initialX: '5%', color: 'text-amber-200' },      // أقصى اليسار
+  // يمكن إضافة المزيد بنفس النمط
 ];
 
 // إعادة variants المنتجات والحاوية
@@ -25,15 +30,15 @@ const containerVariants = {
   hidden: { opacity: 1 },
   visible: {
     opacity: 1,
-    transition: { staggerChildren: 0.2, delayChildren: 0.3 },
+    transition: { staggerChildren: 0.15, delayChildren: 0.2 },
   },
   exit: { 
     opacity: 1, 
-    transition: { staggerChildren: 0.1, delayChildren: 0 }
+    transition: { staggerChildren: 0.08, delayChildren: 0 }
   }
 };
 
-// تعديل variants المنتجات لتتوقف أعلى
+// تعديل variants المنتجات لتتوقف أعلى بكثير
 const productVariants = {
   hidden: (custom: number) => ({
     y: '-50vh', 
@@ -43,8 +48,8 @@ const productVariants = {
     rotate: custom * 25 
   }),
   visible: (custom: number) => ({
-    // تقليل القيمة النهائية لـ y مرة أخرى
-    y: `${55 + custom * 5}vh`, // <-- قيمة متوسطة هنا
+    // تقليل القيمة النهائية لـ y بشكل كبير
+    y: `${35 + custom * 4}vh`, // <-- قيمة أقل بكثير هنا
     x: '-50%',
     opacity: 1,
     scale: 1, 
@@ -53,7 +58,7 @@ const productVariants = {
       y: { 
           type: 'tween', 
           ease: "easeOut", 
-          duration: 1.3 + Math.random() * 0.3, // تعديل المدة للمسافة الجديدة
+          duration: 1 + Math.random() * 0.2, // تقليل المدة للمسافة الأقصر
           delay: Math.random() * 0.1 
       }, 
       opacity: { duration: 0.5 }, 
@@ -61,13 +66,11 @@ const productVariants = {
     },
   }),
   exit: (custom: number) => ({
-    x: '0%', 
-    // تعديل y للخروج
-    y: `${70 + custom * 5}vh`, // <-- تعديل قيمة y للخروج
     opacity: 0,
-    scale: 0.1,
+    scale: 0, 
     rotate: custom * 30,
-    transition: { duration: 0.4, ease: "circIn", delay: 0.1 } 
+    // لا نحتاج لتحديد y و x هنا بما أنها تتقلص في مكانها
+    transition: { duration: 0.3, ease: "easeIn" } 
   })
 };
 
@@ -100,7 +103,7 @@ export default function ShoppingSplash({ onAnimationComplete }: ShoppingSplashPr
   const [showSparks, setShowSparks] = useState(false); // لتحكم بظهور الأفراح
 
   const handleProductsFallComplete = () => {
-    console.log("Products tween fall (medium height) complete, triggering sparks and exit...");
+    console.log("Products fall (higher stop) complete, triggering sparks and exit...");
     setShowSparks(true); 
     // تعديل التأخيرات لتتناسب مع مدة السقوط الجديدة
     setTimeout(() => {
@@ -110,14 +113,14 @@ export default function ShoppingSplash({ onAnimationComplete }: ShoppingSplashPr
     
     setTimeout(() => {
       setStartExit(true);
-    }, 1200); // تعديل التأخير الإجمالي (كان 1300)
+    }, 1000); // تقليل التأخير الإجمالي (كان 1200)
   };
 
   return (
     <AnimatePresence onExitComplete={onAnimationComplete}>
       {!startExit && (
         <motion.div
-          key="splash-screen-animated-bg-centered-tween-fall-medium"
+          key="splash-screen-responsive-final"
           className={`fixed inset-0 z-0 flex flex-col items-center justify-center p-8 bg-gradient-to-br from-blue-100 via-purple-100 to-blue-200 dark:from-gray-800 dark:via-gray-900 dark:to-black overflow-hidden ${cairo.className}`}
           style={{ backgroundSize: '200% 200%' }}
           initial={{ backgroundPosition: "0% 50%", opacity: 1 }}
@@ -131,20 +134,21 @@ export default function ShoppingSplash({ onAnimationComplete }: ShoppingSplashPr
           }}
           exit={{ opacity: 0 }}
         >
-          {/* حاوية المنتجات - إضافة z-10 */}
           <motion.div
-            className="absolute top-0 left-0 right-0 w-full h-3/5 pointer-events-none z-10" 
+            // تعديل ارتفاع منطقة السقوط لتكون أقل على الشاشات الصغيرة
+            className="absolute top-0 left-0 right-0 w-full h-2/5 sm:h-3/5 pointer-events-none z-10" 
             variants={containerVariants}
             initial="hidden"
             animate={productsVisible ? "visible" : "exit"} 
             onAnimationComplete={handleProductsFallComplete} 
           >
-            {products.map((product) => (
+            {products.map((product, index) => (
               <motion.div
                 key={product.id}
                 variants={productVariants}
                 custom={Math.random() * 2 - 1}
-                className={`absolute top-0 ${product.color}`}
+                // إخفاء المنتجات الأخيرة (index >= 4) على الشاشات الصغيرة
+                className={`absolute top-0 ${product.color} ${index >= 4 ? 'hidden sm:block' : 'block'}`}
                 style={{ left: product.initialX }} 
               >
                 <product.Icon size={48} strokeWidth={1.5} />
@@ -152,9 +156,9 @@ export default function ShoppingSplash({ onAnimationComplete }: ShoppingSplashPr
             ))}
           </motion.div>
 
-          {/* حاوية العلامة التجارية - إضافة z-20 */}
+          {/* حاوية العلامة التجارية - تعديل الهامش ليكون متجاوبًا */}
           <motion.div 
-            className="flex flex-col items-center text-center w-full max-w-md px-4 mt-16 z-20" 
+            className="flex flex-col items-center text-center w-full max-w-md px-4 mt-8 sm:mt-16 z-20" // mt-8 للهاتف, sm:mt-16 للأكبر
             variants={brandingContainerVariants}
             initial="hidden"
             animate="visible"
@@ -164,12 +168,14 @@ export default function ShoppingSplash({ onAnimationComplete }: ShoppingSplashPr
               <img 
                 src="/icons/icon-512x512.png" 
                 alt="شعار عربة التسوق" 
-                className="w-16 h-16 mb-4 rounded-lg" 
+                // تكبير الشعار على الهاتف
+                className="w-20 h-20 sm:w-16 sm:h-16 mb-5 sm:mb-4 rounded-lg" 
               />
             </motion.div>
             <motion.h1 
               variants={titleVariants}
-              className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2"
+              // تكبير الخط على الهاتف
+              className="text-4xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2"
             >
               عربة التسوق
             </motion.h1>
@@ -181,12 +187,12 @@ export default function ShoppingSplash({ onAnimationComplete }: ShoppingSplashPr
             </motion.p>
           </motion.div>
 
-          {/* حاوية الشرارات - إضافة z-10 (لتكون فوق الخلفية وتحت النص) */}
+          {/* حاوية الشرارات - تعديل الموضع ليكون متجاوبًا */}
           <AnimatePresence>
             {showSparks && (
               <motion.div 
-                className="absolute bottom-[30%] left-1/2 -translate-x-1/2 z-10"
-                // تعديل bottom ليتناسب مع y=55vh (تقريبي)
+                 // تعديل الموضع ليتناسب مع y=35vh
+                className="absolute bottom-[50%] sm:bottom-[45%] left-1/2 -translate-x-1/2 z-10"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}

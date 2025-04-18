@@ -52,7 +52,7 @@ export function ConfirmDialog({
       >
         <Trash2 className="h-4 w-4" />
       </Button>
-      <AlertDialogContent className="rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg bg-white dark:bg-gray-850 p-6 max-w-md mx-auto animate__fadeIn">
+      <AlertDialogContent className="rounded-xl shadow-lg p-6 max-w-md mx-auto animate__fadeIn">
         <AlertDialogHeader className="gap-4 items-center">
           <div className="mx-auto bg-red-100 dark:bg-red-900/30 p-3 rounded-full">
             <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
