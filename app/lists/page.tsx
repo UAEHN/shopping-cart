@@ -145,40 +145,12 @@ export default function ListsPage() {
   
   const loadSentLists = async (username: string, showLoading = true) => {
     if (showLoading) setIsLoading(true);
-    // Get current user ID to filter out hidden lists
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      console.error("Cannot load sent lists without current user ID.");
-      if (showLoading) setIsLoading(false);
-      return;
-    }
     try {
-      // Fetch lists created by the user
-      let query = supabase
+      const { data: lists, error } = await supabase
         .from('lists')
         .select('*, items(id, purchased, name)')
-        .eq('creator_username', username);
-
-      // Fetch IDs of lists hidden by the current user
-      const { data: hiddenListsData, error: hiddenListsError } = await supabase
-        .from('recipient_hidden_lists')
-        .select('list_id')
-        .eq('user_id', user.id);
-
-      if (hiddenListsError) {
-        console.error("Error fetching hidden lists:", hiddenListsError);
-        // Proceed without filtering if fetching hidden lists fails? Or throw error?
-        // Let's proceed without filtering for now, but log the error.
-      } else {
-        const hiddenListIds = hiddenListsData.map(item => item.list_id);
-        if (hiddenListIds.length > 0) {
-          // Exclude the lists that are marked as hidden by the current user
-          query = query.not('id', 'in', `(${hiddenListIds.join(',')})`);
-        }
-      }
-
-      // Execute the query to get the final list data
-      const { data: lists, error } = await query.order('created_at', { ascending: false });
+        .eq('creator_username', username)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       const formattedLists = processLists(lists);
@@ -196,39 +168,12 @@ export default function ListsPage() {
         return;
     }
     try {
-      // Call the RPC function as before
-      const { data: rpcLists, error: rpcError } = await supabase
+      const { data: visibleRpcLists, error: rpcError } = await supabase
         .rpc('get_visible_received_lists', { p_user_id: user.id }); 
 
       if (rpcError) throw rpcError;
 
-      // Fetch IDs of lists explicitly hidden by the current user (additional check)
-      const { data: hiddenListsData, error: hiddenListsError } = await supabase
-        .from('recipient_hidden_lists')
-        .select('list_id')
-        .eq('user_id', user.id);
-
-      let hiddenListIds: string[] = [];
-      if (hiddenListsError) {
-        console.error("Error fetching hidden lists for received lists:", hiddenListsError);
-        // Proceed without client-side filtering if fetching hidden lists fails
-      } else {
-        hiddenListIds = hiddenListsData.map(item => item.list_id);
-      }
-      
-      // Filter the results from RPC based on the hidden list IDs
-      const visibleRpcLists = (rpcLists || []).filter((list: ShoppingList) => !hiddenListIds.includes(list.id));
-
-      // ---- START DEBUG LOGGING ----
-      console.log('loadReceivedLists DEBUG:');
-      console.log('  - User ID:', user.id);
-      console.log('  - RPC List IDs:', (rpcLists || []).map((l: ShoppingList) => l.id));
-      console.log('  - Hidden List IDs from DB:', hiddenListIds);
-      console.log('  - Visible List IDs after client filter:', visibleRpcLists.map((l: ShoppingList) => l.id));
-      // ---- END DEBUG LOGGING ----
-
-      // Fetch items only for the potentially visible lists
-      const listsWithItems = await Promise.all(visibleRpcLists.map(async (list: ShoppingList) => {
+      const listsWithItems = await Promise.all((visibleRpcLists || []).map(async (list: ShoppingList) => {
           const { data: items, error: itemsError } = await supabase
               .from('items')
               .select('id, purchased, name')
@@ -243,11 +188,6 @@ export default function ListsPage() {
       listsWithItems.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
       const formattedLists = processLists(listsWithItems);
-
-      // ---- START DEBUG LOGGING ----
-      console.log('  - Final List IDs before setReceivedLists:', formattedLists.map((l: ShoppingList) => l.id));
-      console.log('---- END loadReceivedLists DEBUG ----');
-      // ---- END DEBUG LOGGING ----
 
       setReceivedLists(formattedLists);
     } catch (error) {
@@ -330,21 +270,10 @@ export default function ListsPage() {
 
     setIsProcessingAction(true);
     try {
-      // ---- START DEBUG LOGGING ----
-      console.log(`handleHideList DEBUG: Attempting to hide list ${listIdToHide} for user ${user.id}`);
-      // ---- END DEBUG LOGGING ----
       const { data: insertData, error } = await supabase
         .from('recipient_hidden_lists')
         .insert({ user_id: user.id, list_id: listIdToHide })
-        .select(); // Add .select() to potentially get back the inserted data or error details
-
-      // ---- START DEBUG LOGGING ----
-      if (error) {
-        console.error(`handleHideList DEBUG: Insert error (Code: ${error.code}):`, error.message);
-      } else {
-        console.log('handleHideList DEBUG: Insert successful. Returned data:', insertData);
-      }
-      // ---- END DEBUG LOGGING ----
+        .select();
 
       if (error) {
         if (error.code === '23505') {
@@ -372,37 +301,32 @@ export default function ListsPage() {
     if (!listId || isDeleting) return;
     setIsDeleting(true);
     try {
-      // First delete associated items
       const { error: itemsError } = await supabase.from('items').delete().eq('list_id', listId);
       if (itemsError) { 
         toast.error(t('lists.deleteItemsError'), 2000); 
         setIsDeleting(false); 
         return; 
       } 
-      // Then delete the list itself
       const { error: listError } = await supabase.from('lists').delete().eq('id', listId);
       if (listError) { 
         toast.error(t('lists.deleteListError'), 2000); 
         setIsDeleting(false); 
         return; 
       }
-      // Remove from UI
       setSentLists(prevLists => prevLists.filter(list => list.id !== listId));
-      // Also remove if it somehow appeared in received (shouldn't happen with hard delete)
       setReceivedLists(prevLists => prevLists.filter(list => list.id !== listId)); 
       toast.success(t('lists.deleteSuccess'), 2000);
     } catch (error) { 
       toast.error(t('lists.deleteUnexpectedError'), 2000); 
     } finally { 
       setIsDeleting(false); 
-      setListToDelete(null); // Close the modal
+      setListToDelete(null);
     } 
   }, [isDeleting, t]);
   
   const EmptyListsMessage = ({ type }: { type: 'sent' | 'received' }) => {
     const MotionButton = motion(Button);
     const { theme } = useTheme();
-    // Define variants for the icon/text stagger effect on hover
     const buttonContentVariants = {
       rest: { y: 0 },
       hover: { y: -2 }
@@ -411,12 +335,11 @@ export default function ListsPage() {
       type: 'spring', 
       stiffness: 400, 
       damping: 15,
-      staggerChildren: 0.05 // Stagger icon and text slightly
+      staggerChildren: 0.05
     };
 
-    // Define gradients for light and dark modes
-    const gradientLight = "linear-gradient(100deg, #1e40af, #1d4ed8, #2563eb, #1d4ed8, #1e40af)"; // Darker blues for light mode
-    const gradientDark = "linear-gradient(100deg, #2563eb, #3b82f6, #60a5fa, #3b82f6, #2563eb)"; // Original gradient for dark mode
+    const gradientLight = "linear-gradient(100deg, #1e40af, #1d4ed8, #2563eb, #1d4ed8, #1e40af)";
+    const gradientDark = "linear-gradient(100deg, #2563eb, #3b82f6, #60a5fa, #3b82f6, #2563eb)";
 
     return (
       <Card className="border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-xl overflow-hidden mt-6">
@@ -488,14 +411,12 @@ export default function ListsPage() {
       }
     };
 
-    // Reintroduce helper to open the hard delete modal
     const handleDeleteClick = (e: React.MouseEvent) => {
-        e.stopPropagation(); // Prevent card click
+        e.stopPropagation();
         setListToDelete(list.id);
     };
 
-    // Determine progress bar color based on status
-    let progressBarColor = 'bg-blue-500 dark:bg-blue-600'; // Default blue for 'new'
+    let progressBarColor = 'bg-blue-500 dark:bg-blue-600';
     if (list.status === 'completed') {
       progressBarColor = 'bg-green-500 dark:bg-green-600';
     } else if (list.status === 'opened' || list.status === 'in_progress') {
@@ -531,17 +452,15 @@ export default function ListsPage() {
               <div className="flex items-center gap-2 flex-shrink-0">
                 {renderStatusBadge(list.status)}
                 {isSent ? (
-                  // Sender: Show direct button triggering the hard delete modal
                   <button
-                    onClick={handleDeleteClick} // Call helper to set state for modal
+                    onClick={handleDeleteClick}
                     className="p-1.5 rounded-full text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                     title={t('lists.deleteList')}
-                    disabled={isDeleting} // Disable based on hard delete state
+                    disabled={isDeleting}
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
                 ) : (
-                  // Recipient: Show ConfirmDialog for soft delete/hide
                   <ConfirmDialog
                    title={t('lists.deleteConfirmTitle')} 
                    description={t('lists.deleteConfirmMessage')} 
@@ -553,7 +472,7 @@ export default function ListsPage() {
                       onClick={(e) => e.stopPropagation()}
                       className="p-1.5 rounded-full text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                       title={t('lists.deleteList')}
-                      disabled={isProcessingAction} // Disable based on soft delete state
+                      disabled={isProcessingAction}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -582,17 +501,15 @@ export default function ListsPage() {
     );
   };
   
-  // Animation variants for TabsContent
   const tabContentVariants = {
     hidden: { opacity: 0, y: 10 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" } },
     exit: { opacity: 0, y: -10, transition: { duration: 0.2, ease: "easeIn" } }
   };
 
-  // Transition for the tubelight effect
   const tubelightTransition = {
     type: "spring",
-    stiffness: 500, // Adjusted stiffness/damping for a potentially faster feel on tabs
+    stiffness: 500,
     damping: 40,
   };
 
@@ -645,7 +562,6 @@ export default function ListsPage() {
         )}
       />
       
-      {/* Reintroduce the hard delete confirmation modal */}
       {listToDelete && (
         <div className="fixed inset-0 bg-black/50 dark:bg-black/70 z-40 flex items-center justify-center p-4 animate__fadeIn animate__faster">
           <Card className="w-full max-w-md z-50 shadow-xl border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-800">
