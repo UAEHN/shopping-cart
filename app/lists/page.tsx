@@ -7,7 +7,7 @@ import { toast, clearAllToasts } from '@/components/ui/toast';
 import Header from '@/components/layout/Header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart, Clock, CheckCircle, Package, Send, Receipt, Plus, RefreshCw, Trash2, AlertCircle, Inbox } from 'lucide-react';
+import { ShoppingCart, Clock, CheckCircle, Package, Send, Receipt, Plus, RefreshCw, Trash2, AlertCircle, Inbox, EyeOff } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +16,7 @@ import { ar, enUS } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from "@/lib/utils";
 import { useTheme } from 'next-themes';
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 interface ShoppingList {
   id: string;
@@ -50,6 +51,7 @@ export default function ListsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [listToDelete, setListToDelete] = useState<string | null>(null);
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
   const dateLocale = i18n.language.startsWith('ar') ? ar : enUS;
   const { theme } = useTheme();
 
@@ -143,12 +145,41 @@ export default function ListsPage() {
   
   const loadSentLists = async (username: string, showLoading = true) => {
     if (showLoading) setIsLoading(true);
+    // Get current user ID to filter out hidden lists
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.error("Cannot load sent lists without current user ID.");
+      if (showLoading) setIsLoading(false);
+      return;
+    }
     try {
-      const { data: lists, error } = await supabase
+      // Fetch lists created by the user
+      let query = supabase
         .from('lists')
         .select('*, items(id, purchased, name)')
-        .eq('creator_username', username)
-        .order('created_at', { ascending: false });
+        .eq('creator_username', username);
+
+      // Fetch IDs of lists hidden by the current user
+      const { data: hiddenListsData, error: hiddenListsError } = await supabase
+        .from('recipient_hidden_lists')
+        .select('list_id')
+        .eq('user_id', user.id);
+
+      if (hiddenListsError) {
+        console.error("Error fetching hidden lists:", hiddenListsError);
+        // Proceed without filtering if fetching hidden lists fails? Or throw error?
+        // Let's proceed without filtering for now, but log the error.
+      } else {
+        const hiddenListIds = hiddenListsData.map(item => item.list_id);
+        if (hiddenListIds.length > 0) {
+          // Exclude the lists that are marked as hidden by the current user
+          query = query.not('id', 'in', `(${hiddenListIds.join(',')})`);
+        }
+      }
+
+      // Execute the query to get the final list data
+      const { data: lists, error } = await query.order('created_at', { ascending: false });
+
       if (error) throw error;
       const formattedLists = processLists(lists);
       setSentLists(formattedLists);
@@ -158,22 +189,78 @@ export default function ListsPage() {
   
   const loadReceivedLists = async (username: string, showLoading = true) => {
     if (showLoading) setIsLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        console.error("Cannot load received lists without current user ID.");
+        if (showLoading) setIsLoading(false);
+        return;
+    }
     try {
-      const { data: lists, error } = await supabase
-        .from('lists')
-        .select('*, items(id, purchased, name)')
-        .eq('recipient_username', username)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      const formattedLists = processLists(lists);
+      // Call the RPC function as before
+      const { data: rpcLists, error: rpcError } = await supabase
+        .rpc('get_visible_received_lists', { p_user_id: user.id }); 
+
+      if (rpcError) throw rpcError;
+
+      // Fetch IDs of lists explicitly hidden by the current user (additional check)
+      const { data: hiddenListsData, error: hiddenListsError } = await supabase
+        .from('recipient_hidden_lists')
+        .select('list_id')
+        .eq('user_id', user.id);
+
+      let hiddenListIds: string[] = [];
+      if (hiddenListsError) {
+        console.error("Error fetching hidden lists for received lists:", hiddenListsError);
+        // Proceed without client-side filtering if fetching hidden lists fails
+      } else {
+        hiddenListIds = hiddenListsData.map(item => item.list_id);
+      }
+      
+      // Filter the results from RPC based on the hidden list IDs
+      const visibleRpcLists = (rpcLists || []).filter((list: ShoppingList) => !hiddenListIds.includes(list.id));
+
+      // ---- START DEBUG LOGGING ----
+      console.log('loadReceivedLists DEBUG:');
+      console.log('  - User ID:', user.id);
+      console.log('  - RPC List IDs:', (rpcLists || []).map((l: ShoppingList) => l.id));
+      console.log('  - Hidden List IDs from DB:', hiddenListIds);
+      console.log('  - Visible List IDs after client filter:', visibleRpcLists.map((l: ShoppingList) => l.id));
+      // ---- END DEBUG LOGGING ----
+
+      // Fetch items only for the potentially visible lists
+      const listsWithItems = await Promise.all(visibleRpcLists.map(async (list: ShoppingList) => {
+          const { data: items, error: itemsError } = await supabase
+              .from('items')
+              .select('id, purchased, name')
+              .eq('list_id', list.id);
+          if (itemsError) {
+              console.error(`Error fetching items for list ${list.id}:`, itemsError);
+              return { ...list, items: [] };
+          }
+          return { ...list, items: items || [] };
+      }));
+      
+      listsWithItems.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      const formattedLists = processLists(listsWithItems);
+
+      // ---- START DEBUG LOGGING ----
+      console.log('  - Final List IDs before setReceivedLists:', formattedLists.map((l: ShoppingList) => l.id));
+      console.log('---- END loadReceivedLists DEBUG ----');
+      // ---- END DEBUG LOGGING ----
+
       setReceivedLists(formattedLists);
-    } catch (error) { toast.error(t('lists.loadReceivedError'), 2000); }
-    finally { if (showLoading) setIsLoading(false); }
+    } catch (error) {
+      console.error("Error in loadReceivedLists:", error);
+      toast.error(t('lists.loadReceivedError'), 2000); 
+    } finally { 
+        if (showLoading) setIsLoading(false); 
+    }
   };
   
-  const processLists = (lists: any[] | null): ShoppingList[] => {
+  const processLists = (lists: ShoppingList[] | null): ShoppingList[] => {
       if (!lists) return [];
-      return lists.map(list => {
+      return lists.map((list: ShoppingList) => {
         const itemsArray = list.items as ListItem[] || [];
         const itemsCount = itemsArray.length;
         const completedItemsCount = itemsArray.filter(item => item.purchased).length;
@@ -232,19 +319,84 @@ export default function ListsPage() {
     finally { setIsRefreshing(false); }
   }, [currentUser, isRefreshing, tab, t]);
   
-  const deleteList = useCallback(async (listId: string) => {
+  const handleHideList = async (listIdToHide: string) => {
+    if (isProcessingAction) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error(t('auth.loginRequired'));
+      return;
+    }
+
+    setIsProcessingAction(true);
+    try {
+      // ---- START DEBUG LOGGING ----
+      console.log(`handleHideList DEBUG: Attempting to hide list ${listIdToHide} for user ${user.id}`);
+      // ---- END DEBUG LOGGING ----
+      const { data: insertData, error } = await supabase
+        .from('recipient_hidden_lists')
+        .insert({ user_id: user.id, list_id: listIdToHide })
+        .select(); // Add .select() to potentially get back the inserted data or error details
+
+      // ---- START DEBUG LOGGING ----
+      if (error) {
+        console.error(`handleHideList DEBUG: Insert error (Code: ${error.code}):`, error.message);
+      } else {
+        console.log('handleHideList DEBUG: Insert successful. Returned data:', insertData);
+      }
+      // ---- END DEBUG LOGGING ----
+
+      if (error) {
+        if (error.code === '23505') {
+          toast.info(t('lists.alreadyDeletedInfo'));
+          setReceivedLists(prev => prev.filter(list => list.id !== listIdToHide));
+          setSentLists(prev => prev.filter(list => list.id !== listIdToHide));
+        } else {
+          console.error('Error hiding list:', error);
+          toast.error(t('lists.deleteListError'));
+        }
+      } else {
+        setReceivedLists(prev => prev.filter(list => list.id !== listIdToHide));
+        setSentLists(prev => prev.filter(list => list.id !== listIdToHide));
+        toast.success(t('lists.deleteSuccess'));
+      }
+    } catch (e) {
+      console.error('Unexpected error hiding list:', e);
+      toast.error(t('lists.deleteUnexpectedError'));
+    } finally {
+      setIsProcessingAction(false);
+    }
+  };
+  
+  const deleteList = useCallback(async (listId: string | null) => {
     if (!listId || isDeleting) return;
     setIsDeleting(true);
     try {
+      // First delete associated items
       const { error: itemsError } = await supabase.from('items').delete().eq('list_id', listId);
-      if (itemsError) { toast.error(t('lists.deleteItemsError'), 2000); setIsDeleting(false); return; }
+      if (itemsError) { 
+        toast.error(t('lists.deleteItemsError'), 2000); 
+        setIsDeleting(false); 
+        return; 
+      } 
+      // Then delete the list itself
       const { error: listError } = await supabase.from('lists').delete().eq('id', listId);
-      if (listError) { toast.error(t('lists.deleteListError'), 2000); setIsDeleting(false); return; }
+      if (listError) { 
+        toast.error(t('lists.deleteListError'), 2000); 
+        setIsDeleting(false); 
+        return; 
+      }
+      // Remove from UI
       setSentLists(prevLists => prevLists.filter(list => list.id !== listId));
-      setReceivedLists(prevLists => prevLists.filter(list => list.id !== listId));
+      // Also remove if it somehow appeared in received (shouldn't happen with hard delete)
+      setReceivedLists(prevLists => prevLists.filter(list => list.id !== listId)); 
       toast.success(t('lists.deleteSuccess'), 2000);
-    } catch (error) { toast.error(t('lists.deleteUnexpectedError'), 2000); }
-    finally { setIsDeleting(false); setListToDelete(null); }
+    } catch (error) { 
+      toast.error(t('lists.deleteUnexpectedError'), 2000); 
+    } finally { 
+      setIsDeleting(false); 
+      setListToDelete(null); // Close the modal
+    } 
   }, [isDeleting, t]);
   
   const EmptyListsMessage = ({ type }: { type: 'sent' | 'received' }) => {
@@ -326,11 +478,6 @@ export default function ListsPage() {
         statusText = t('lists.statusOpened');
     }
 
-    const handleDeleteClick = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        setListToDelete(list.id);
-    };
-
     const formatDate = (dateString: string) => {
       try {
         const date = parseISO(dateString);
@@ -339,6 +486,12 @@ export default function ListsPage() {
         console.error("Error formatting relative date:", dateString, error);
         return t('common.unknownTime');
       }
+    };
+
+    // Reintroduce helper to open the hard delete modal
+    const handleDeleteClick = (e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent card click
+        setListToDelete(list.id);
     };
 
     // Determine progress bar color based on status
@@ -377,15 +530,35 @@ export default function ListsPage() {
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 {renderStatusBadge(list.status)}
-                {isSent && (
+                {isSent ? (
+                  // Sender: Show direct button triggering the hard delete modal
                   <button
-                    onClick={handleDeleteClick}
+                    onClick={handleDeleteClick} // Call helper to set state for modal
                     className="p-1.5 rounded-full text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                     title={t('lists.deleteList')}
+                    disabled={isDeleting} // Disable based on hard delete state
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
-                )}
+                ) : (
+                  // Recipient: Show ConfirmDialog for soft delete/hide
+                  <ConfirmDialog
+                   title={t('lists.deleteConfirmTitle')} 
+                   description={t('lists.deleteConfirmMessage')} 
+                   confirmText={t('lists.yesDeleteList')} 
+                   cancelText={t('common.cancel')} 
+                   onConfirm={() => handleHideList(list.id)} 
+                  >
+                    <button
+                      onClick={(e) => e.stopPropagation()}
+                      className="p-1.5 rounded-full text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      title={t('lists.deleteList')}
+                      disabled={isProcessingAction} // Disable based on soft delete state
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </ConfirmDialog>
+                 )}
               </div>
             </div>
 
@@ -472,6 +645,7 @@ export default function ListsPage() {
         )}
       />
       
+      {/* Reintroduce the hard delete confirmation modal */}
       {listToDelete && (
         <div className="fixed inset-0 bg-black/50 dark:bg-black/70 z-40 flex items-center justify-center p-4 animate__fadeIn animate__faster">
           <Card className="w-full max-w-md z-50 shadow-xl border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-800">

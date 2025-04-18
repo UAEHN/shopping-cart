@@ -37,5 +37,20 @@
     "markAllAsRead": "تعيين الكل كمقروء",
     "noNewNotifications": "لا توجد إشعارات جديدة",
     "viewAll": "عرض كل الإشعارات"
+  },
+  "lists": {
+    "deleteConfirmTitle": "تأكيد حذف القائمة",
+    "deleteConfirmMessage": "هل أنت متأكد أنك تريد حذف هذه القائمة؟ هذا الإجراء لا يمكن التراجع عنه. سيتم حذف القائمة من عرضك فقط.",
+    "yesDeleteList": "نعم، احذف القائمة",
+    "deleting": "جارٍ الحذف...",
+    "hideConfirmTitle": "تأكيد إخفاء القائمة",
+    "hideConfirmDescription": "هل أنت متأكد من رغبتك في إخفاء هذه القائمة؟ يمكنك إظهارها لاحقًا.",
+    "hideConfirmButton": "نعم، إخفاء",
+    "cancelHideListButton": "إلغاء",
+    "alreadyHidden": "القائمة مخفية بالفعل.",
+    "hideError": "حدث خطأ أثناء إخفاء القائمة.",
+    "hideSuccess": "تم إخفاء القائمة بنجاح.",
+    "hideUnexpectedError": "حدث خطأ غير متوقع أثناء إخفاء القائمة.",
+    "alreadyDeletedInfo": "القائمة محذوفة بالفعل."
   }
 } 
