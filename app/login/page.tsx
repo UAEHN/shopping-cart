@@ -111,7 +111,7 @@ export default function LoginPage() {
         }
         
         toast.success(t('auth.loginSuccess'));
-        router.push('/home'); // Redirect on successful login
+        router.push('/lists'); // <-- Changed to /lists
       } else {
         // Sign Up Flow
         if (password !== confirmPassword) {
@@ -151,7 +151,7 @@ export default function LoginPage() {
         setIsLogin(true); // Switch to login view after successful signup? Or redirect?
         // Consider redirecting to a profile setup page or home after signup
         // router.push('/profile-setup'); // Example redirect
-        router.push('/home'); // Redirect to home for now
+        router.push('/lists'); // <-- Changed to /lists
 
       }
     } catch (err: unknown) {

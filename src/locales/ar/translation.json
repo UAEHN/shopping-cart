@@ -62,7 +62,9 @@
     "usernameHint": "مسموح فقط بالحروف والأرقام الإنجليزية والشرطة السفلية (_)",
     "saveUsernameButton": "حفظ اسم المستخدم والمتابعة",
     "usernameSetSuccess": "تم تعيين اسم المستخدم بنجاح!",
-    "usernameSetFailed": "فشل تعيين اسم المستخدم."
+    "usernameSetFailed": "فشل تعيين اسم المستخدم.",
+    "showPassword": "إظهار كلمة المرور",
+    "hidePassword": "إخفاء كلمة المرور"
   },
   "register": {
     "title": "تسجيل حساب جديد",
@@ -123,7 +125,8 @@
     "unknownTime": "وقت غير معروف",
     "adding": "جاري الإضافة...",
     "required": "هذا الحقل مطلوب",
-    "back": "رجوع"
+    "back": "رجوع",
+    "nextButton": "التالي"
   },
   "notifications": {
     "loading": "جاري تحميل الإشعارات...",
@@ -181,7 +184,7 @@
     "loadReceivedError": "حدث خطأ أثناء تحميل القوائم المستلمة",
     "pageTitle": "قوائمي",
     "receivedTab": "مستلمة",
-    "sentTab": "مرسلة",
+    "sentTab": "قوائمي",
     "noSentLists": "لم تقم بإرسال أي قوائم بعد",
     "noReceivedLists": "لم تستلم أي قوائم بعد",
     "noSentListsMessage": "قم بإنشاء قائمة جديدة واختر جهة اتصال لإرسالها إليها",
@@ -190,8 +193,10 @@
     "statusNew": "جديدة",
     "statusOpened": "قيد التنفيذ",
     "statusCompleted": "مكتملة",
+    "statusDraft": "محفوضة",
     "listTo": "قائمة إلى {{name}}",
     "listFrom": "قائمة من {{name}}",
+    "untitledListFallback": "قائمة إلى {{name}}",
     "deleteList": "حذف القائمة",
     "item_one": "{{count}} عنصر",
     "item_two": "عنصران",
@@ -231,12 +236,14 @@
     "itemCount": "{{count}} عنصر",
     "noListsFound": "لم يتم العثور على قوائم.",
     "createListButton": "إنشاء قائمة جديدة",
-    "deleteConfirmTitle": "تأكيد حذف القائمة",
     "deleteConfirmDescription": "هل أنت متأكد أنك تريد حذف القائمة '{{name}}'؟ هذا الإجراء لا يمكن التراجع عنه.",
-    "deleteSuccess": "تم حذف القائمة بنجاح.",
-    "deleteError": "حدث خطأ أثناء حذف القائمة.",
-    "deleteUnexpectedError": "حدث خطأ غير متوقع أثناء الحذف",
-    "creatingNewListInfo": "جارٍ الانتقال لإنشاء قائمة..."
+    "creatingNewListInfo": "جارٍ الانتقال لإنشاء قائمة...",
+    "hideList": "إخفاء القائمة",
+    "showHiddenLists": "إظهار القوائم المخفية",
+    "hideSuccess": "تم إخفاء القائمة بنجاح",
+    "hideError": "حدث خطأ أثناء إخفاء القائمة",
+    "unhideSuccess": "تم إظهار القائمة بنجاح",
+    "unhideError": "حدث خطأ أثناء إظهار القائمة"
   },
   "createList": {
     "pageTitle": "إنشاء قائمة جديدة",
@@ -276,7 +283,20 @@
     "goToContacts": "اذهب إلى جهات الاتصال",
     "selectRecipientDialogTitle": "اختر مستلمًا",
     "searchContacts": "ابحث عن جهات اتصال...",
-    "noContactsFound": "لم يتم العثور على جهات اتصال."
+    "noContactsFound": "لم يتم العثور على جهات اتصال.",
+    "step1Title": "تسمية القائمة",
+    "step1Description": "قم بإضافة اسم لقائمة التسوق الخاصة بك",
+    "step2Title": "إضافة المنتجات",
+    "doneAddingItems": " إنشاء القائمة ",
+    "sendNowButton": "إرسال الآن",
+    "saveForLaterButton": "حفظ للاستخدام لاحقًا",
+    "defaultListName": "مشتريات {{date}}",
+    "draftCreationError": "خطأ في إنشاء مسودة القائمة",
+    "itemInsertionWarning": "تم حفظ القائمة ولكن بعض المنتجات لم يتم إضافتها",
+    "draftSavedSuccess": "تم حفظ مسودة القائمة بنجاح",
+    "unexpectedDraftError": "حدث خطأ غير متوقع أثناء حفظ المسودة",
+    "notificationCreationWarning": "تم إرسال القائمة ولكن قد لا يتم إشعار المستلم",
+    "addAtLeastOneItem": "الرجاء إضافة منتج واحد على الأقل"
   },
   "selectRecipient": {
     "title": "اختر المستلم",

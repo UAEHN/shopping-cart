@@ -1,5 +1,5 @@
 import { initializeApp, getApp, getApps } from 'firebase/app';
-import { getMessaging, getToken, isSupported } from 'firebase/messaging';
+import { getMessaging, getToken, isSupported, Messaging } from 'firebase/messaging';
 
 // تأكد من وجود متغيرات البيئة الضرورية
 const firebaseConfig = {
@@ -14,7 +14,7 @@ const firebaseConfig = {
 // تهيئة Firebase فقط إذا لم يكن قد تم تهيئته بالفعل
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-let messagingInstance = null;
+let messagingInstance: Messaging | null = null;
 
 // تهيئة Messaging فقط في بيئة المتصفح و إذا كان مدعومًا
 if (typeof window !== 'undefined') {
@@ -51,11 +51,13 @@ export const fetchToken = async (): Promise<string | null> => {
   }
 
   try {
+    console.log('[Firebase] Attempting to get FCM token...');
     const currentToken = await getToken(messagingInstance, { vapidKey: vapidKey });
     if (currentToken) {
-      console.log('FCM Token:', currentToken);
+      console.log('[Firebase] Successfully got FCM token:', currentToken);
       return currentToken;
     } else {
+      console.log('[Firebase] No token available, permission might be needed.');
       // عرض هذا للمستخدمين المتقدمين
       console.log('No registration token available. Request permission to generate one.');
       // يمكنك هنا إضافة منطق لطلب الإذن بشكل صريح إذا لم يتم منحه
@@ -63,6 +65,7 @@ export const fetchToken = async (): Promise<string | null> => {
       return null;
     }
   } catch (err) {
+    console.error('[Firebase] Error retrieving FCM token:', err);
     console.error('An error occurred while retrieving token. ', err);
     // alert('Error retrieving notification token. Please check console.');
     return null;

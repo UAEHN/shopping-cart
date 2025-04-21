@@ -54,6 +54,7 @@ export default function Header({
               <Link href={
                 pathname.includes('/lists/') ? '/lists' :
                 pathname === '/create-list' ? '/lists' :
+                pathname === '/notifications' ? '/lists' :
                 '/home'
               }>
                 <ArrowRight className="h-5 w-5 text-gray-700 dark:text-gray-300" />

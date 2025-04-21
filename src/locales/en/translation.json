@@ -248,7 +248,7 @@
     "loadReceivedError": "Error loading received lists",
     "pageTitle": "My Lists",
     "receivedTab": "Received",
-    "sentTab": "Sent",
+    "sentTab": "my lists",
     "createSuccess": "List created and sent successfully",
     "createError": "Error creating list",
     "create": "Create",
@@ -265,6 +265,7 @@
     "statusCompleted": "Completed",
     "status_pending": "Pending",
     "status_in_progress": "In Progress",
+    "statusDraft": "Saved",
     "sentTo": "List to {{name}}",
     "receivedFrom": "List from {{name}}",
     "createdAt": "Created at {{date}}",
@@ -334,7 +335,8 @@
     "category_household": "Household",
     "sharedBy": "Shared by",
     "confirmDeleteItemTitle": "Confirm Item Deletion",
-    "confirmDeleteItemMessage": "Are you sure you want to delete this item?"
+    "confirmDeleteItemMessage": "Are you sure you want to delete this item?",
+    "untitledListFallback": "List to {{name}}"
   },
   "createList": {
     "pageTitle": "Create New List",

@@ -252,18 +252,25 @@ export const useNotifications = (userId: string | null, limit: number = 10) => {
           filter: `user_id=eq.${userId}`
         },
         (payload) => {
-          if (!isMounted) return;
-          const newNotification = payload.new as Notification;
-          console.log('useNotifications: Received INSERT event:', newNotification);
-          // Add only if not hidden
-          if (!newNotification.is_hidden) {
-            setNotifications((prev) => [
-              newNotification,
-              ...prev.filter((n) => n.id !== newNotification.id), // Avoid duplicates
-            ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, limit));
-            
+          // --- Add console log for incoming notification ---
+          console.log('[useNotifications] Realtime INSERT received:', payload.new);
+          // --------------------------------------------------
+          if (isMounted) {
+            const newNotification = payload.new as Notification;
+            // Prevent adding if already hidden (though fetch shouldn't get hidden ones)
+            if (newNotification.is_hidden) return;
+
+            setNotifications(prev => {
+              // Avoid duplicates if event arrives multiple times
+              if (prev.some(n => n.id === newNotification.id)) return prev;
+              // Add to the beginning and maintain limit
+              const updated = [newNotification, ...prev];
+              return updated.slice(0, limit);
+            });
+            // Increment unread count only if the new one is unread
             if (!newNotification.is_read) {
-               setUnreadCount((prev) => prev + 1);
+              setUnreadCount(prev => prev + 1);
+              console.log('[useNotifications] Incremented unread count.');
             }
           }
         }
@@ -320,17 +327,14 @@ export const useNotifications = (userId: string | null, limit: number = 10) => {
         }
       )
       .subscribe((status, err) => {
-          if (err) {
-             console.error(`useNotifications: Realtime subscription error for ${channelName}:`, err);
-             if (isMounted) setError('Failed to subscribe to notification updates.');
-          } else {
-             console.log(`useNotifications: Realtime subscription status for ${channelName}: ${status}`);
-          }
+        if (err) {
+          console.error(`useNotifications: Realtime subscription error on ${channelName}:`, err);
+          setError('Failed to subscribe to real-time updates.');
+        }
+        console.log(`useNotifications: Realtime subscription status on ${channelName}: ${status}`);
       });
 
-      // Store the channel instance
-      channel = supabase.channel(channelName);
-
+    console.log(`useNotifications: Channel ${channelName} subscription initiated.`);
 
     // --- Cleanup Function ---
     return () => {

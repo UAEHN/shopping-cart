@@ -7,7 +7,7 @@ import { toast, clearAllToasts } from '@/components/ui/toast';
 import Header from '@/components/layout/Header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart, Clock, CheckCircle, Package, Send, Receipt, Plus, RefreshCw, Trash2, AlertCircle, Inbox, EyeOff } from 'lucide-react';
+import { ShoppingCart, Clock, CheckCircle, Package, Send, Receipt, Plus, RefreshCw, Trash2, AlertCircle, Inbox, EyeOff, Save } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +17,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from "@/lib/utils";
 import { useTheme } from 'next-themes';
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import SelectRecipientDialog from "@/components/lists/select-recipient-dialog";
+import { createNotification, type CreateNotificationParams } from '@/services/notifications';
 
 interface ShoppingList {
   id: string;
@@ -52,6 +54,9 @@ export default function ListsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [listToDelete, setListToDelete] = useState<string | null>(null);
   const [isProcessingAction, setIsProcessingAction] = useState(false);
+  const [listToSendId, setListToSendId] = useState<string | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSendingDraft, setIsSendingDraft] = useState(false);
   const dateLocale = i18n.language.startsWith('ar') ? ar : enUS;
   const { theme } = useTheme();
 
@@ -236,6 +241,11 @@ export default function ListsPage() {
         colorClasses = 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300'; 
         break;
       case 'completed': statusText = t('lists.statusCompleted'); Icon = CheckCircle; colorClasses = 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300'; break;
+      case 'draft':
+        statusText = t('lists.statusDraft'); 
+        Icon = Save;
+        colorClasses = 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300';
+        break;
       default: statusText = status; Icon = AlertCircle;
     }
     return (
@@ -389,7 +399,129 @@ export default function ListsPage() {
     );
   };
   
+  const handleInitiateSendDraft = (listId: string) => {
+    setListToSendId(listId);
+    setIsDialogOpen(true);
+  };
+
+  const findUserByUsername = async (username: string): Promise<{ id: string; username: string; } | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, username')
+        .eq('username', username)
+        .limit(1);
+      
+      if (error) {
+        console.error('Error fetching user by username:', error);
+        return null;
+      }
+      
+      if (data && data.length > 0) {
+          return data[0];
+      } else {
+          return null;
+      }
+      
+    } catch (error) {
+      console.error('Exception in findUserByUsername:', error);
+      return null;
+    }
+  };
+
+  const handleSendDraftList = async (recipientUsername: string) => {
+    if (!listToSendId) {
+        console.error('handleSendDraftList called without listToSendId.');
+        toast.error(t('lists.sendDraftErrorGeneric')); 
+        return;
+    }
+    if (!currentUser) {
+        console.error('handleSendDraftList called without currentUser.');
+        toast.error(t('auth.authCheckError')); 
+        return;
+    }
+
+    setIsSendingDraft(true);
+    try {
+        const recipient = await findUserByUsername(recipientUsername);
+        if (!recipient) {
+            toast.error(t('createList.recipientNotFound', { name: recipientUsername }), 2000);
+            setIsSendingDraft(false);
+            return;
+        }
+
+        // 2. Update the list in Supabase
+        const { error: updateError } = await supabase
+            .from('lists')
+            .update({
+                recipient_id: recipient.id,
+                recipient_username: recipient.username,
+                status: 'new',
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', listToSendId)
+            .eq('creator_username', currentUser);
+
+        if (updateError) {
+            console.error('[handleSendDraftList] Error updating list:', updateError);
+        } else {
+            console.log('[handleSendDraftList] List update successful for ID:', listToSendId);
+        }
+
+        if (updateError) {
+            console.error('Error updating draft list status:', updateError);
+            toast.error(t('lists.sendDraftUpdateError'));
+            setIsSendingDraft(false);
+            return;
+        }
+
+        // 3. Notification is now handled by the new backend trigger 'on_list_sent_update_notification'.
+        //    Remove the client-side call attempt.
+        /*
+        try {
+            const notificationParams: CreateNotificationParams = {
+                recipientUserId: recipient.id,
+                message: t('notifications.newListReceived', { sender: currentUser }),
+                type: 'NEW_LIST',
+                relatedListId: listToSendId
+            };
+            console.log("[handleSendDraftList] Attempting client-side notification:", JSON.stringify(notificationParams, null, 2));
+            await createNotification(notificationParams);
+            console.log("[handleSendDraftList] Client-side notification call finished (may have failed due to CORS).");
+        } catch (notificationError) {
+            console.error('Error during client-side notification call for sent draft (proceeding anyway):', notificationError);
+        }
+        */
+
+        // 4. Success feedback and UI update
+        toast.success(t('lists.sendDraftSuccess'));
+        await loadSentLists(currentUser, false);
+
+    } catch (error) {
+        console.error('Unexpected error sending draft list:', error);
+        toast.error(t('lists.sendDraftErrorGeneric'));
+    } finally {
+        setIsSendingDraft(false);
+        setIsDialogOpen(false); // Close the dialog
+        setListToSendId(null); // Reset the ID
+    }
+  };
+
+  const handleSelectRecipient = async (recipientUsername: string) => {
+      if (listToSendId) {
+         await handleSendDraftList(recipientUsername);
+      } else {
+          console.warn("handleSelectRecipient called without a listToSendId in ListsPage");
+          setIsDialogOpen(false);
+      }
+  };
+
   const ListCard = ({ list, isSent }: { list: ShoppingList, isSent: boolean }) => {
+    const listTitle = list.name || 
+                      (isSent 
+                        ? t('lists.untitledListFallback', { name: list.recipient_username })
+                        : t('lists.untitledListFallback', { name: list.creator_username }));
+    
     const itemsCount = list.items_count ?? 0;
     const completedItemsCount = list.completed_items_count ?? 0;
     const completionPercentage = list.completion_percentage ?? 0;
@@ -397,7 +529,7 @@ export default function ListsPage() {
     let statusText = t('lists.statusNew');
     if (list.status === 'completed') {
         statusText = t('lists.statusCompleted');
-    } else if (list.status === 'opened') {
+    } else if (list.status === 'opened' || list.status === 'in_progress') {
         statusText = t('lists.statusOpened');
     }
 
@@ -416,6 +548,11 @@ export default function ListsPage() {
         setListToDelete(list.id);
     };
 
+    const handleHideClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        handleHideList(list.id);
+    };
+
     let progressBarColor = 'bg-blue-500 dark:bg-blue-600';
     if (list.status === 'completed') {
       progressBarColor = 'bg-green-500 dark:bg-green-600';
@@ -426,8 +563,11 @@ export default function ListsPage() {
     return (
       <Card
         key={list.id}
-        onClick={() => openListDetails(list.id)}
-        className="bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-300 overflow-hidden cursor-pointer relative rounded-xl"
+        onClick={() => !isSent || list.status !== 'draft' ? openListDetails(list.id) : undefined}
+        className={cn(
+          "bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-300 overflow-hidden relative rounded-xl",
+          (!isSent || list.status !== 'draft') && "cursor-pointer"
+        )}
       >
         <CardContent className="p-4">
           <div className="flex flex-col space-y-4">
@@ -438,7 +578,7 @@ export default function ListsPage() {
                 </div>
                 <div className="min-w-0">
                   <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">
-                    {isSent ? t('lists.listTo', { name: list.recipient_username }) : t('lists.listFrom', { name: list.creator_username })}
+                    {listTitle}
                   </h3>
                   <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1 text-sm text-gray-500 dark:text-gray-400">
                     <span className="flex items-center gap-1 shrink-0"><ShoppingCart className="h-4 w-4" /><span>{t('lists.item', { count: itemsCount })}</span></span>
@@ -452,31 +592,38 @@ export default function ListsPage() {
               <div className="flex items-center gap-2 flex-shrink-0">
                 {renderStatusBadge(list.status)}
                 {isSent ? (
-                  <button
-                    onClick={handleDeleteClick}
-                    className="p-1.5 rounded-full text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                    title={t('lists.deleteList')}
-                    disabled={isDeleting}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                ) : (
-                  <ConfirmDialog
-                   title={t('lists.deleteConfirmTitle')} 
-                   description={t('lists.deleteConfirmMessage')} 
-                   confirmText={t('lists.yesDeleteList')} 
-                   cancelText={t('common.cancel')} 
-                   onConfirm={() => handleHideList(list.id)} 
-                  >
+                  <div className="flex items-center gap-1">
+                    {list.status === 'draft' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleInitiateSendDraft(list.id);
+                        }}
+                        className="p-1.5 rounded-full text-blue-600 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors"
+                        title={t('createList.sendNowButton')}
+                        disabled={isSendingDraft}
+                      >
+                        <Send className="h-4 w-4" />
+                      </button>
+                    )}
                     <button
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={handleDeleteClick}
                       className="p-1.5 rounded-full text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                       title={t('lists.deleteList')}
-                      disabled={isProcessingAction}
+                      disabled={isDeleting || isSendingDraft}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
-                  </ConfirmDialog>
+                  </div>
+                ) : (
+                   <button
+                      onClick={handleHideClick}
+                      className="p-1.5 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+                      title={t('lists.hideList')}
+                      disabled={isProcessingAction}
+                    >
+                      <EyeOff className="h-4 w-4" />
+                    </button>
                  )}
               </div>
             </div>
@@ -738,6 +885,17 @@ export default function ListsPage() {
           </AnimatePresence>
         </Tabs>
       </div>
+
+      <SelectRecipientDialog
+          isOpen={isDialogOpen}
+          onClose={() => {
+              setIsDialogOpen(false);
+              setListToSendId(null);
+          }}
+          onSelectRecipient={handleSelectRecipient}
+          currentUser={currentUser}
+          isSending={isSendingDraft}
+      />
     </div>
   );
 } 

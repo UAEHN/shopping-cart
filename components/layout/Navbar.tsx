@@ -22,7 +22,6 @@ interface NavItem {
 }
 
 const navItemConfig: NavItem[] = [
-  { key: 'nav.home', href: '/home', icon: HomeIcon },
   { key: 'nav.lists', href: '/lists', icon: ShoppingCart },
   { key: 'nav.contacts', href: '/contacts', icon: Users },
   { key: 'nav.settings', href: '/settings', icon: Settings },
@@ -46,7 +45,7 @@ export default function Navbar() {
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 shadow-lg backdrop-blur-sm bg-opacity-95 dark:bg-opacity-95">
       <div className="flex items-stretch justify-around h-16 px-1 sm:px-2 max-w-screen-md mx-auto">
         {navItemConfig.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = pathname === item.href || (item.href === '/lists' && pathname === '/');
           const Icon = item.icon;
           
           return (
