@@ -173,12 +173,12 @@ export default function ListsPage() {
         return;
     }
     try {
-      const { data: visibleRpcLists, error: rpcError } = await supabase
-        .rpc('get_visible_received_lists', { p_user_id: user.id }); 
+      const { data: accessibleLists, error: rpcError } = await supabase
+        .rpc('get_accessible_received_lists', { p_user_id: user.id }); 
 
       if (rpcError) throw rpcError;
 
-      const listsWithItems = await Promise.all((visibleRpcLists || []).map(async (list: ShoppingList) => {
+      const listsWithItems = await Promise.all((accessibleLists || []).map(async (list: ShoppingList) => {
           const { data: items, error: itemsError } = await supabase
               .from('items')
               .select('id, purchased, name')
@@ -563,10 +563,11 @@ export default function ListsPage() {
     return (
       <Card
         key={list.id}
-        onClick={() => !isSent || list.status !== 'draft' ? openListDetails(list.id) : undefined}
+        onClick={() => openListDetails(list.id)}
         className={cn(
           "bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-300 overflow-hidden relative rounded-xl",
-          (!isSent || list.status !== 'draft') && "cursor-pointer"
+          "cursor-pointer",
+          isProcessingAction && "opacity-70"
         )}
       >
         <CardContent className="p-4">

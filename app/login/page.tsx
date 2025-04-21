@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,12 +14,16 @@ import { Eye, EyeOff, Mail, Lock, User, UserCircle, ArrowRight, UserRound, Loade
 // import LanguageSwitcher from '@/components/LanguageSwitcher'; // Removed import
 import { motion } from 'framer-motion';
 import { useDebounce } from '@/hooks/useDebounce'; // Assuming a debounce hook exists
+import { supabase } from '@/services/supabase'; // Import supabase client directly for RPC call
 
 export default function LoginPage() {
   const { t } = useTranslation();
-  const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
-  const [isLogin, setIsLogin] = useState(true);
+  const searchParams = useSearchParams(); // Get search params
+  const shareCode = searchParams.get('shareCode'); // Extract shareCode
+  const initialView = searchParams.get('view'); // Get view param
+  const [isMounted, setIsMounted] = useState(false);
+  const [isLogin, setIsLogin] = useState(initialView !== 'register');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -43,7 +47,14 @@ export default function LoginPage() {
   
   useEffect(() => {
     setIsMounted(true);
-  }, []);
+    if (shareCode) {
+      console.log('[LoginPage] Detected shareCode from URL:', shareCode);
+    }
+    // If the view param directs to register, ensure the state reflects that
+    if (initialView === 'register') {
+      setIsLogin(false);
+    }
+  }, [shareCode, initialView]); // Add initialView to dependency array
   
   // Effect to check username availability
   useEffect(() => {
@@ -87,11 +98,58 @@ export default function LoginPage() {
     };
   }, [debouncedUsername, t]);
   
+  // --- Helper function to handle redirection --- 
+  const handleRedirect = async (userId: string) => {
+    if (shareCode) {
+        console.log('[LoginPage] Handling redirect with shareCode:', shareCode);
+        try {
+            // 1. Resolve shareCode to listId
+            const { data: listId, error: resolveError } = await supabase.rpc('resolve_share_code', {
+                p_share_code: shareCode
+            });
+
+            if (resolveError || !listId) {
+                console.error('[LoginPage] Failed to resolve share code after auth:', resolveError);
+                toast.warning(t('shareLink.invalidOrExpiredRedirect')); // Need this translation key
+                router.push('/lists'); // Redirect to default lists page if resolve fails
+                return;
+            }
+            
+            console.log(`[LoginPage] Resolved listId: ${listId}. Recording access for user ${userId}...`);
+
+            // 2. Record access in shared_list_access (ignore unique conflict)
+            const { error: insertError } = await supabase
+                .from('shared_list_access')
+                .insert({ list_id: listId, user_id: userId });
+
+            if (insertError && insertError.code !== '23505') {
+                console.error('[LoginPage] Failed to record shared list access:', insertError);
+                toast.warning(t('shareLink.accessRecordErrorRedirect')); // Need this translation key
+                // Continue redirect even if logging fails
+            }
+            
+            // 3. Redirect to the specific list
+            console.log(`[LoginPage] Redirecting user to shared list: /lists/${listId}`);
+            router.push(`/lists/${listId}`);
+
+        } catch (err) {
+            console.error('[LoginPage] Error during shareCode redirect handling:', err);
+            toast.error(t('shareLink.redirectHandlingError')); // Need this translation key
+            router.push('/lists'); // Fallback to default lists page
+        }
+    } else {
+        // Default redirect if no shareCode
+        console.log('[LoginPage] No shareCode found, redirecting to default /lists');
+        router.push('/lists');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
     setUsernameCheckError(null);
+    let userId: string | undefined;
     
     try {
       if (isLogin) {
@@ -103,15 +161,15 @@ export default function LoginPage() {
           throw signInError;
         }
         
-        // Check if data or data.user is null/undefined
         if (!data?.user) { 
           const genericError = t('auth.loginError');
           toast.error(genericError);
           throw new Error(genericError);
         }
         
+        userId = data.user.id;
         toast.success(t('auth.loginSuccess'));
-        router.push('/lists'); // <-- Changed to /lists
+        // router.push('/lists'); // <-- Redirection handled by handleRedirect
       } else {
         // Sign Up Flow
         if (password !== confirmPassword) {
@@ -120,16 +178,13 @@ export default function LoginPage() {
         if (!username || username.length < 3) {
           throw new Error(t('auth.usernameWarning'));
         }
-        // Explicitly check for availability status from the state
         if (isUsernameAvailable === false) { 
           throw new Error(t('auth.usernameTaken'));
         }
-        // Optionally, prevent submission if username is still being checked or hasn't been checked
         if (isUsernameAvailable === null || isCheckingUsername) { 
-            throw new Error(t('auth.usernameCheckPendingOrRunning')); // New translation key needed
+            throw new Error(t('auth.usernameCheckPendingOrRunning'));
         }
         
-        // Call signUp and handle potential null data
         const result = await signUp(email, password, username);
         const signUpError = result.error;
         const data = result.data;
@@ -139,21 +194,26 @@ export default function LoginPage() {
           throw signUpError;
         }
         
-        // Check if data or data.user is null/undefined explicitly after checking error
         if (!data?.user) { 
           const genericError = t('auth.registerError');
           toast.error(genericError);
           throw new Error(genericError);
         }
         
-        // User registration successful (confirmation might be needed depending on Supabase settings)
+        userId = data.user.id;
         toast.success(t('auth.registerSuccessCheckEmail')); 
-        setIsLogin(true); // Switch to login view after successful signup? Or redirect?
-        // Consider redirecting to a profile setup page or home after signup
-        // router.push('/profile-setup'); // Example redirect
-        router.push('/lists'); // <-- Changed to /lists
-
+        // router.push('/lists'); // <-- Redirection handled by handleRedirect
       }
+      
+      // --- Call redirect handler after successful login/signup ---
+      if (userId) {
+          await handleRedirect(userId);
+      } else {
+          // Should not happen if login/signup was successful, but as a fallback:
+          console.error("[LoginPage] User ID not found after successful auth attempt. Defaulting redirect.");
+          router.push('/lists');
+      }
+
     } catch (err: unknown) {
       console.error('Auth error:', err);
       const message = err instanceof Error ? err.message : t('auth.unexpectedError');
@@ -161,9 +221,9 @@ export default function LoginPage() {
       if (message === t('auth.usernameTaken')) {
         setUsernameCheckError(message);
       }
-    } finally {
-      setIsLoading(false);
-    }
+      setIsLoading(false); // Ensure loading is false on error
+    } 
+    // Removed finally block setting isLoading to false, it should only be set on error or completion inside handleRedirect
   };
   
   const toggleView = () => {

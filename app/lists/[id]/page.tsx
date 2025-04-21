@@ -37,6 +37,7 @@ interface ListDetails {
   created_at: string;
   updated_at: string;
   items: ListItem[];
+  name: string | null;
 }
 
 // تحسين عرض الصورة في النافذة المنبثقة
@@ -225,6 +226,7 @@ const springTransition = {
 // --- End Animation Variants ---
 
 export default function ListDetailsPage() {
+  console.log('[ListDetailsPage] Component Mounted');
   const router = useRouter();
   const params = useParams();
   const listId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : '';
@@ -241,11 +243,16 @@ export default function ListDetailsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
+  // ADD CONSOLE LOG FOR listId
+  console.log('[ListDetailsPage] listId from params:', listId);
+
   // Generate theme-specific variants
   const itemVariants = getItemVariants(theme);
   const nameVariants = getNameVariants(theme);
 
   const loadListDetails = useCallback(async () => {
+    // ADD CONSOLE LOG AT FUNCTION START
+    console.log('[loadListDetails] Attempting to load details for listId:', listId);
     try {
       if (!listId) {
         toast.error(t('listDetails.invalidId'));
@@ -259,10 +266,14 @@ export default function ListDetailsPage() {
       // جلب تفاصيل القائمة
       const { data: list, error: listError } = await supabase
         .from('lists')
-        .select('*')
+        .select('*') // Select all columns to ensure status is fetched
         .eq('id', listId)
         .single();
       
+      // ADD CONSOLE LOG AFTER LIST FETCH
+      console.log('[loadListDetails] Fetched list data:', list);
+      console.log('[loadListDetails] List fetch error:', listError);
+
       if (listError) {
         console.error('Error loading list:', {
           message: listError.message,
@@ -497,152 +508,64 @@ export default function ListDetailsPage() {
   
   // تبديل حالة الشراء للعنصر
   const toggleItemPurchase = async (itemId: string, purchased: boolean) => {
-    if (!listDetails || !currentUser) return;
-    
-    const itemToUpdate = listDetails.items.find(item => item.id === itemId);
-    if (!itemToUpdate) return;
-    
-    const actorUsername = currentUser;
+    if (!listDetails || isUpdating) return;
 
-    // Capture the state *before* the toggle to calculate the new list status later
-    const itemsBeforeToggle = [...listDetails.items]; 
-    
-    try {
-      setIsUpdating(true);
+    setIsUpdating(true);
+    const newPurchasedStatus = !purchased;
+    const originalListDetails = JSON.parse(JSON.stringify(listDetails)); // Deep copy for revert
+    const optimisticOldStatus = listDetails.status;
+    let optimisticNewStatus = optimisticOldStatus;
 
-      // Get current user ID for purchased_by
-      const { data: { user } } = await supabase.auth.getUser();
-      const currentUserId = user?.id; // It should exist if user is on this page
-
-      // تحديث العنصر في قاعدة البيانات
-      const { data: updatedItemData, error: itemUpdateError } = await supabase
-        .from('items')
-        .update({
-          purchased: purchased,
-          purchased_at: purchased ? new Date().toISOString() : null,
-          // إضافة معرف المستخدم الذي قام بالشطب، أو null إذا تم إلغاء الشطب
-          purchased_by: purchased ? currentUserId : null 
-        })
-        .eq('id', itemId)
-        .select() // Get the updated item back
-        .single();
-
-      if (itemUpdateError) {
-        console.error('Error updating item:', itemUpdateError);
-        toast.error(t('listDetails.itemUpdateError', { errorMessage: itemUpdateError.message || t('common.error') }), 2000);
-        setIsUpdating(false);
-        return;
-      }
-      
-      // 2. Update local UI state for the item immediately
-      const updatedItemsLocally = itemsBeforeToggle.map(item => 
-          item.id === itemId 
-            ? { ...item, purchased, purchased_at: purchased ? new Date().toISOString() : null } 
-            : item
+    // Optimistic UI Update for item
+    setListDetails(prevDetails => {
+      if (!prevDetails) return null;
+      const updatedItems = prevDetails.items.map(item =>
+        item.id === itemId ? { ...item, purchased: newPurchasedStatus, purchased_at: newPurchasedStatus ? new Date().toISOString() : null } : item
       );
-      setListDetails(prev => prev ? { ...prev, items: updatedItemsLocally } : null);
-      toast.success(purchased ? t('listDetails.itemMarkedPurchased') : t('listDetails.itemMarkedNotPurchased'));
-      
-      // --- 4. Calculate new list status and update if changed --- 
-      const currentListStatus = listDetails.status;
-      let newListStatus = currentListStatus;
-      if (updatedItemsLocally.length > 0) {
-          const allPurchased = updatedItemsLocally.every(item => item.purchased);
-          const anyPurchased = updatedItemsLocally.some(item => item.purchased);
-          if (allPurchased) newListStatus = 'completed';
-          else if (anyPurchased) newListStatus = 'opened'; // Or 'in_progress'
-          else newListStatus = 'new';
+      // Optimistic status update
+      const newCompletedCount = updatedItems.filter(i => i.purchased).length;
+      const totalItems = updatedItems.length;
+      if (totalItems > 0) {
+          if (newCompletedCount === totalItems) optimisticNewStatus = 'completed';
+          else if (newCompletedCount > 0 && prevDetails.status === 'new') optimisticNewStatus = 'opened';
+          else optimisticNewStatus = prevDetails.status;
       } else {
-          newListStatus = 'new'; // If list becomes empty
+          optimisticNewStatus = 'new';
+      }
+      return { ...prevDetails, items: updatedItems, status: optimisticNewStatus };
+    });
+
+    try {
+      // Update item in database
+      const { error: itemError } = await supabase
+        .from('items')
+        .update({ 
+            purchased: newPurchasedStatus,
+            purchased_at: newPurchasedStatus ? new Date().toISOString() : null,
+            updated_at: new Date().toISOString()
+         })
+        .eq('id', itemId);
+
+      if (itemError) throw new Error(itemError.message); 
+
+      // If item toggle potentially changed list status, update list status
+      if (optimisticNewStatus !== optimisticOldStatus) {
+          const { error: statusError } = await supabase
+              .from('lists')
+              .update({ status: optimisticNewStatus, updated_at: new Date().toISOString() })
+              .eq('id', listDetails.id);
+          if (statusError) {
+             console.warn("[toggleItemPurchase] Failed to update list status optimistically:", statusError.message);
+          }
       }
 
-      if (newListStatus !== currentListStatus) {
-        console.log(`[toggleItemPurchase] Status changed! From: ${currentListStatus}, To: ${newListStatus}. Preparing notification record.`);
-        
-        const notificationRecipientUsername = listDetails.creator_username;
-        const notificationActorUsername = currentUser;
+      toast.success(newPurchasedStatus ? t('listDetails.itemMarkedPurchased') : t('listDetails.itemMarkedNotPurchased'), 1500);
 
-        // 4a. Update list status in DB
-        const { error: listStatusUpdateError } = await supabase
-          .from('lists')
-          .update({ status: newListStatus, updated_at: new Date().toISOString() })
-          .eq('id', listId);
-
-        if (listStatusUpdateError) {
-          console.error('Error updating list status in DB:', listStatusUpdateError);
-          toast.error(t('listDetails.listStatusUpdateError', { errorMessage: listStatusUpdateError.message }), 1500);
-          // Don't return, proceed to update local state and maybe notify anyway if DB failed?
-          // Or maybe we should return here to avoid inconsistent state/notifications?
-          // For now, let's proceed but be aware of this potential issue.
-        } else {
-           // Update local state for status as well (redundant if realtime works, but safe)
-           setListDetails(prev => prev ? { ...prev, status: newListStatus } : null);
-        }
-
-        // --- Send Notification Based on Status Change --- 
-        let notificationMessageKey = '';
-        let notificationType: 'LIST_OPENED' | 'LIST_COMPLETED' | null = null;
-
-        if (currentListStatus === 'new' && newListStatus === 'opened') {
-            notificationMessageKey = 'notifications.listStatusOpenedBy';
-            notificationType = 'LIST_OPENED';
-        } else if (currentListStatus !== 'completed' && newListStatus === 'completed') {
-            notificationMessageKey = 'notifications.listStatusCompletedBy';
-            notificationType = 'LIST_COMPLETED';
-        }
-
-        if (notificationMessageKey && notificationType) {
-            console.log(`[toggleItemPurchase] Conditions met for notification type: ${notificationType}`);
-            
-            // Fetch recipient (creator) user data for the notification
-            const { data: recipientData, error: userError } = await supabase
-              .from('users') 
-              .select('id, username') 
-              .eq('username', notificationRecipientUsername)
-              .maybeSingle();
-
-            if (userError) {
-              console.error(`[toggleItemPurchase] Error finding notification recipient (${notificationRecipientUsername}):`, userError);
-            } else if (!recipientData) {
-              console.error(`[toggleItemPurchase] Notification recipient user "${notificationRecipientUsername}" not found.`);
-            } else {
-              const notificationMessage = t(notificationMessageKey, { actor: notificationActorUsername });
-              const notificationPayload = {
-                user_id: recipientData.id,
-                message: notificationMessage,
-                type: notificationType,
-                related_list_id: listId
-              };
-              console.log('[toggleItemPurchase] Attempting to insert notification record:', notificationPayload);
-              
-              try {
-                // Insert directly into notifications table using await
-                const { error: insertError } = await supabase
-                  .from('notifications')
-                  .insert(notificationPayload);
-                  
-                console.log('[toggleItemPurchase] Code execution continued *after* awaited insert.'); // Log Checkpoint A
-
-                if (insertError) {
-                  console.error('[toggleItemPurchase] Error inserting notification record:', insertError); // Log Checkpoint B (Error)
-                } else {
-                  console.log('[toggleItemPurchase] Notification record created successfully.'); // Log Checkpoint C (Success)
-                }
-              } catch (catchError: any) {
-                console.error('[toggleItemPurchase] Exception caught during insert attempt:', catchError); // Log Checkpoint D (Exception)
-              }
-            }
-        }
-        // --- End Send Notification --- 
-
-      }
-      // --- End List Status Update Logic ---
-
-    } catch (error) {
-      console.error('Error in toggleItemPurchase:', error);
-      const errorMessage = error instanceof Error ? error.message : t('common.error');
-      toast.error(t('listDetails.toggleItemError', { errorMessage }));
-      // Consider reverting local state update on error if needed
+    } catch (error: any) {
+      console.error('[toggleItemPurchase] Error:', error);
+      toast.error(t('listDetails.itemUpdateError', { errorMessage: error.message }));
+      // Revert optimistic update on error using the deep copied original state
+      setListDetails(originalListDetails);
     } finally {
       setIsUpdating(false);
     }
@@ -783,12 +706,8 @@ export default function ListDetailsPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse flex flex-col items-center gap-4">
-          <div className="bg-blue-100 dark:bg-blue-900 p-4 rounded-full">
-            <ShoppingCart className="h-10 w-10 text-blue-500 dark:text-blue-300" />
-          </div>
-          <span className="text-xl">{t('common.loading')}</span>
-        </div>
+        <Header title={t('common.loading')} showBackButton={true} />
+        {/* Optional: Add a simple loading spinner or skeleton here */}
       </div>
     );
   }
@@ -796,29 +715,17 @@ export default function ListDetailsPage() {
   // عرض رسالة إذا لم تكن القائمة موجودة
   if (!listDetails) {
     return (
-      <div className="p-4 pt-0">
-        <Header title={t('listDetails.pageTitleFallback')} showBackButton />
-        
-        <div className="mt-8 flex flex-col items-center justify-center py-10 px-4 bg-gray-50 dark:bg-gray-800 rounded-xl text-center">
-          <ShoppingCart className="h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" />
-          <h3 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-2">
-            {t('listDetails.notFoundTitle')}
-          </h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-4">
-            {t('listDetails.notFoundDescription')}
-          </p>
-          <Button 
-            onClick={goBack}
-            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            <span>{t('listDetails.backToLists')}</span>
-          </Button>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <Header title={t('common.error')} showBackButton={true} />
+        <p>{t('lists.listNotFoundOrError')}</p>
       </div>
     );
   }
   
+  const listTitle = listDetails.name || t('lists.untitledListFallback', { 
+    name: listDetails.creator_username === currentUser ? listDetails.recipient_username : listDetails.creator_username 
+  });
+
   // تحديد ما إذا كان المستخدم الحالي هو منشئ القائمة أو مستلمها
   const isCreator = currentUser === listDetails.creator_username;
   const isRecipient = currentUser === listDetails.recipient_username;
@@ -861,133 +768,13 @@ export default function ListDetailsPage() {
     ? Math.round((listDetails.items.filter(item => item.purchased).length / listDetails.items.length) * 100)
     : 0;
 
-  // تحديث حالة القائمة (الدالة القديمة - قد تكون غير مستخدمة)
-  const updateListStatus = async (newStatus: string) => {
-    // Ensure listDetails and current user are available
-    if (!listDetails || !currentUser) return;
-
-    // Capture current list details before update for notification logic
-    const currentCreator = listDetails.creator_username;
-    const currentRecipient = listDetails.recipient_username;
-    const actorUsername = currentUser; // User performing the action
-    
-    try {
-      setIsUpdating(true);
-      
-      // تحديث حالة القائمة في قاعدة البيانات
-      const { error: updateError } = await supabase
-        .from('lists')
-        .update({ 
-          status: newStatus,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', listId);
-      
-      if (updateError) throw updateError;
-      
-      // تحديث واجهة المستخدم المحلية (يمكن القيام به هنا أو الاعتماد على Realtime)
-      setListDetails(prevDetails => prevDetails ? {
-        ...prevDetails,
-        status: newStatus,
-        updated_at: new Date().toISOString()
-      } : null);
-      
-      // --- إنشاء إشعار لمستلم أو منشئ القائمة --- 
-      // Determine recipient based on captured current list details
-      /*  COMMENTING OUT NOTIFICATION LOGIC IN THIS OLD FUNCTION
-      const recipientUsername = actorUsername === currentCreator 
-        ? currentRecipient 
-        : currentCreator;
-      
-      // Fetch recipient user data
-      const { data: recipientData, error: userError } = await supabase
-        .from('users') 
-        .select('id, username')
-        .eq('username', recipientUsername)
-        .maybeSingle();
-
-      if (userError) {
-        console.error('Error finding notification recipient user for list status update:', userError);
-      } else if (!recipientData) {
-        console.error(`Notification recipient user "${recipientUsername}" not found for list status update.`);
-      } else {
-        // Only send if recipient found
-        let messageKey = ''; // Use key instead of hardcoded message
-        let statusText = newStatus; // Fallback status text
-
-        switch (newStatus) {
-          case 'completed':
-              messageKey = 'notifications.listStatusCompletedBy';
-              statusText = t('lists.statusCompleted'); // Get localized status name
-            break;
-          case 'opened': 
-              messageKey = 'notifications.listStatusOpenedBy';
-              statusText = t('lists.statusOpened'); // Get localized status name
-            break;
-          case 'new':
-              messageKey = 'notifications.listStatusResetBy';
-              statusText = t('lists.statusNew'); // Get localized status name
-            break;
-          default:
-              messageKey = 'notifications.listStatusUpdatedBy';
-              // statusText remains newStatus for unknown statuses
-        }
-        
-        // Generate the translated message
-        const notificationMessage = t(messageKey, { actor: actorUsername, status: statusText });
-
-        createNotification(
-            recipientData, // Pass the full user object now
-            notificationMessage, // Pass the translated message
-            'LIST_STATUS', // Use a specific type
-            null,
-            listId
-        );
-      }
-      */ // --- نهاية التعليق على إنشاء الإشعار ---
-      
-      toast.success(t('listDetails.listStatusUpdatedSuccess'));
-    } catch (error) {
-      console.error('Error updating list status:', error);
-      toast.error(t('listDetails.updateListStatusError'));
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-  
   return (
-    <div className="container max-w-3xl mx-auto px-4 pb-20">
-        <Header 
-          title={isLoading ? t('common.loading') : (listDetails?.creator_username === currentUser ? t('listDetails.titleSent') : t('listDetails.titleReceived'))} 
-          showBackButton
-          extras={
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={() => {
-                  setIsRefreshing(true);
-                  loadListDetails().finally(() => setIsRefreshing(false));
-                }}
-                className="flex items-center justify-center p-2 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
-                disabled={isRefreshing}
-                aria-label={t('listDetails.refreshAriaLabel')}
-              >
-                <RefreshCw className={`h-5 w-5 text-blue-600 dark:text-blue-400 ${isRefreshing ? 'animate-spin' : ''}`} />
-              </button>
-              
-              {/* زر حذف القائمة - يظهر فقط للمنشئ */}
-              {isCreator && !isDeleting && !showDeleteConfirm && (
-                <button 
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="flex items-center justify-center p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                  aria-label={t('listDetails.deleteListAriaLabel')}
-                >
-                  <Trash2 className="h-5 w-5 text-red-500 dark:text-red-400" />
-                </button>
-              )}
-            </div>
-          } 
-        />
-        
+    <div className="container mx-auto p-4 pb-20">
+      <Header 
+        title={listTitle}
+        showBackButton={true}
+        shareCode={listDetails.share_code} 
+      />
       <div className="p-4 pt-0 pb-20">
         {/* تأكيد الحذف */}
         {showDeleteConfirm && (
@@ -1128,7 +915,7 @@ export default function ListDetailsPage() {
                             {/* Check Button */}
                             <Button
                               onClick={() => toggleItemPurchase(item.id, !item.purchased)}
-                              disabled={isUpdating || (!isRecipient)} // Only recipient can toggle
+                              disabled={isUpdating}
                               variant={item.purchased ? "default" : "outline"}
                               size="sm"
                               className={`rounded-full h-8 w-8 p-0 flex items-center justify-center shrink-0 transition-colors duration-200 ease-in-out ${ 

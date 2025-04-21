@@ -349,15 +349,15 @@ export default function CreateListPage() {
 
       // 4. Insert items
       if (listItems.length > 0) {
-          const itemsToInsert = listItems.map(item => ({
-            name: item.name,
-            list_id: listId,
-            purchased: false
-          }));
-          const { error: itemsError } = await supabase.from('items').insert(itemsToInsert);
+      const itemsToInsert = listItems.map(item => ({
+        name: item.name,
+        list_id: listId,
+        purchased: false
+      }));
+      const { error: itemsError } = await supabase.from('items').insert(itemsToInsert);
 
-          if (itemsError) {
-            console.error('Error inserting items:', itemsError);
+      if (itemsError) {
+        console.error('Error inserting items:', itemsError);
             // Consider rolling back list creation or just warning?
             // For now, warn user but proceed.
             toast.warning(t('createList.itemInsertionWarning'), 3000);
@@ -419,7 +419,7 @@ export default function CreateListPage() {
     <div className="container mx-auto p-4 pb-20">
       <Header title={t('createList.pageTitle')} showBackButton={true} />
       <Card className="mt-6 bg-white dark:bg-gray-800 shadow-lg rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700">
-        <CardContent className="p-6">
+          <CardContent className="p-6">
           {/* Step 1: Enter List Name */}
           {step === 'enterName' && (
             <div>
@@ -516,10 +516,10 @@ export default function CreateListPage() {
                    <Button variant="outline" onClick={handleSaveForLater} disabled={isSending} className="flex-1 border-blue-600 text-blue-600 hover:bg-blue-50 dark:border-blue-500 dark:text-blue-400 dark:hover:bg-blue-900/20">
                      {isSending ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
                      {isSending ? t('createList.sendingButton') : t('createList.saveForLaterButton')}
-                   </Button>
-                </div>
-              )}
-            </div>
+              </Button>
+          </div>
+        )}
+      </div>
           )}
 
         </CardContent>
