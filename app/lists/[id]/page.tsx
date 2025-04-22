@@ -245,7 +245,7 @@ export default function ListDetailsPage() {
   
   // ADD CONSOLE LOG FOR listId
   console.log('[ListDetailsPage] listId from params:', listId);
-
+  
   // Generate theme-specific variants
   const itemVariants = getItemVariants(theme);
   const nameVariants = getNameVariants(theme);
@@ -273,7 +273,7 @@ export default function ListDetailsPage() {
       // ADD CONSOLE LOG AFTER LIST FETCH
       console.log('[loadListDetails] Fetched list data:', list);
       console.log('[loadListDetails] List fetch error:', listError);
-
+      
       if (listError) {
         console.error('Error loading list:', {
           message: listError.message,
@@ -389,183 +389,345 @@ export default function ListDetailsPage() {
     clearAllToasts();
     checkAuthAndLoadList();
     
-    // --- إعداد اشتراك Realtime --- 
+    // === إعداد اشتراك Realtime === 
     if (!listId) return;
     
-    console.log(`إعداد اشتراك الوقت الفعلي لقائمة: ${listId}`);
+    console.log(`[REALTIME] Setting up realtime subscription for list: ${listId}`);
     
-    const channel = supabase
-      .channel(`list-updates-${listId}`)
+    // === وظائف معالجة الأحداث (مكتوبة من الصفر) ===
+    
+    // وظيفة مستقلة لمعالجة الإدراج (INSERT)
+    function handleInsert(payload: any, prevState: ListDetails | null): ListDetails | null {
+      if (!prevState) return prevState;
+      
+      console.log('[REALTIME INSERT] Processing INSERT event');
+      
+      try {
+        const newItem = payload.new as ListItem;
+        console.log(`[REALTIME INSERT] New item data:`, newItem);
+        
+        // تجنب الإدراج المكرر
+        if (prevState.items.some(item => item.id === newItem.id)) {
+          console.log(`[REALTIME INSERT] Item ${newItem.id} already exists, skipping`);
+          return prevState;
+        }
+        
+        // تحديث الحالة مع العنصر الجديد
+        const updatedItems = [...prevState.items, newItem];
+        console.log(`[REALTIME INSERT] Items count: ${prevState.items.length} -> ${updatedItems.length}`);
+        
+        // حساب الحالة المحدثة
+        const newStatus = calculateStatus(updatedItems);
+        
+        return {
+          ...prevState,
+          items: updatedItems,
+          status: newStatus
+        };
+      } catch (error) {
+        console.error('[REALTIME INSERT] Error processing INSERT event:', error);
+        return prevState;
+      }
+    }
+    
+    // وظيفة مستقلة لمعالجة التحديث (UPDATE)
+    function handleUpdate(payload: any, prevState: ListDetails | null): ListDetails | null {
+      if (!prevState) return prevState;
+      
+      console.log('[REALTIME UPDATE] Processing UPDATE event');
+      
+      try {
+        const updatedItem = payload.new as ListItem;
+        console.log(`[REALTIME UPDATE] Updated item:`, updatedItem);
+        
+        // البحث عن العنصر وتحديثه
+        const itemIndex = prevState.items.findIndex(item => item.id === updatedItem.id);
+        
+        if (itemIndex === -1) {
+          console.log(`[REALTIME UPDATE] Item not found in state, adding it`);
+          return handleInsert(payload, prevState);
+        }
+        
+        // نسخ المصفوفة وتحديث العنصر
+        const updatedItems = [...prevState.items];
+        updatedItems[itemIndex] = {
+          ...updatedItems[itemIndex],
+          ...updatedItem
+        };
+        
+        // حساب الحالة المحدثة
+        const newStatus = calculateStatus(updatedItems);
+        
+        return {
+          ...prevState,
+          items: updatedItems,
+          status: newStatus
+        };
+      } catch (error) {
+        console.error('[REALTIME UPDATE] Error processing UPDATE event:', error);
+        return prevState;
+      }
+    }
+    
+    // وظيفة مستقلة لمعالجة الحذف (DELETE) - معاد كتابتها بالكامل
+    function handleDelete(payload: any, prevState: ListDetails | null): ListDetails | null {
+      if (!prevState) return prevState;
+      
+      console.log('[REALTIME DELETE] Processing DELETE event:', JSON.stringify(payload));
+      
+      try {
+        // خطوة 1: استخراج معرف العنصر المحذوف من الحدث
+        // NOTE: في حدث DELETE، تكون البيانات في payload.old وليس في payload.new
+        if (!payload.old && !payload.old?.id) {
+          console.error('[REALTIME DELETE] Cannot identify deleted item ID:', payload);
+          // تحديث كامل للقائمة
+          setTimeout(loadListDetails, 300);
+          return prevState;
+        }
+        
+        const deletedItemId = payload.old.id;
+        console.log(`[REALTIME DELETE] Attempting to delete item with ID: ${deletedItemId}`);
+        
+        // خطوة 2: البحث عن العنصر في الحالة الحالية قبل الحذف
+        const itemExists = prevState.items.some(item => item.id === deletedItemId);
+        
+        if (!itemExists) {
+          console.warn(`[REALTIME DELETE] Item ${deletedItemId} not found in current state.`);
+          console.log(`[REALTIME DELETE] Current items:`, prevState.items.map(i => i.id));
+          setTimeout(loadListDetails, 300);
+          return prevState;
+        }
+        
+        // خطوة 3: إنشاء قائمة جديدة بدون العنصر المحذوف (تمامًا كما تعمل الإضافة ولكن بالعكس)
+        console.log(`[REALTIME DELETE] Before: ${prevState.items.length} items`);
+        const updatedItems = prevState.items.filter(item => item.id !== deletedItemId);
+        console.log(`[REALTIME DELETE] After: ${updatedItems.length} items`);
+        
+        // خطوة 4: حساب حالة القائمة الجديدة (مثل الإضافة تمامًا)
+        const newStatus = calculateStatus(updatedItems);
+        console.log(`[REALTIME DELETE] New status: ${newStatus}`);
+        
+        // خطوة 5: إرجاع الحالة المحدثة بنفس طريقة وظيفة الإضافة
+        return {
+          ...prevState,
+          items: updatedItems,
+          status: newStatus
+        };
+      } catch (error) {
+        console.error('[REALTIME DELETE] Error:', error);
+        setTimeout(loadListDetails, 300);
+        return prevState;
+      }
+    }
+    
+    // وظيفة مساعدة لحساب حالة القائمة من العناصر
+    function calculateStatus(items: ListItem[]): string {
+      const totalItems = items.length;
+      const completedItems = items.filter(item => item.purchased).length;
+      
+      if (totalItems === 0) return 'new';
+      if (completedItems === totalItems) return 'completed';
+      if (completedItems > 0) return 'opened';
+      return 'new';
+    }
+    
+    // === إنشاء قناة الاشتراك ===
+    const channelA = supabase
+      .channel(`list-items-${listId}`)
       .on(
         'postgres_changes',
         {
-          event: '*', // Listen to INSERT, UPDATE, DELETE for items
+          event: '*',
           schema: 'public',
           table: 'items',
           filter: `list_id=eq.${listId}`
         },
         (payload) => {
-          console.log(`تحديث Realtime لـ items في القائمة ${listId}:`, payload);
+          // سجل تفصيلي للحدث المستلم
+          console.log(`>>> [REALTIME EVENT RECEIVED] <<<`);
+          console.log(`Event Type: ${payload.eventType}`);
+          console.log(`Table: ${payload.table}`);
+          console.log(`Timestamp: ${payload.commit_timestamp}`);
           
+          // معالجة الحدث واختيار المعالج المناسب
           setListDetails((prevDetails) => {
             if (!prevDetails) return prevDetails;
             
-            let updatedItems = [...prevDetails.items];
-            let statusChanged = false;
-            let newStatus = prevDetails.status;
-
-            if (payload.eventType === 'INSERT') {
-              const newItem = payload.new as ListItem;
-              if (!updatedItems.some(item => item.id === newItem.id)) {
-                updatedItems.push(newItem);
-                toast.info(`تمت إضافة منتج جديد: ${newItem.name}`, 1500);
+            try {
+              switch (payload.eventType as string) {
+                case 'INSERT':
+                  return handleInsert(payload, prevDetails);
+                  
+                case 'UPDATE':
+                  return handleUpdate(payload, prevDetails);
+                  
+                case 'DELETE':
+                  // طباعة كامل الحدث لفهم بنيته
+                  console.log('[REALTIME DELETE] Raw payload:', JSON.stringify(payload));
+                  console.log('[REALTIME DELETE] payload.old:', payload.old);
+                  console.log('[REALTIME DELETE] All payload keys:', Object.keys(payload));
+                  
+                  // تنفيذ `loadListDetails` كآلية احتياطية أولاً، ثم محاولة معالجة الحدث
+                  const deleteResult = handleDelete(payload, prevDetails);
+                  
+                  // تأكد من تنفيذ loadListDetails بغض النظر عن نتيجة المعالجة
+                  setTimeout(() => {
+                    console.log('[REALTIME DELETE] Executing scheduled full refresh');
+                    loadListDetails();
+                  }, 500);
+                  
+                  return deleteResult;
+                  
+                default:
+                  console.warn(`[REALTIME] Unknown event type: ${payload.eventType}`);
+                  return prevDetails;
               }
-            } else if (payload.eventType === 'UPDATE') {
-              const updatedItem = payload.new as ListItem;
-              updatedItems = updatedItems.map(item => 
-                item.id === updatedItem.id ? { ...item, ...updatedItem } : item
-              );
-              // We removed the toast for purchase status change from here
-            } else if (payload.eventType === 'DELETE') {
-              const deletedItemId = payload.old.id;
-              updatedItems = updatedItems.filter(item => item.id !== deletedItemId);
+            } catch (error) {
+              console.error(`[REALTIME] Error handling ${payload.eventType} event:`, error);
+              return prevDetails;
             }
-
-            // Recalculate list status based on the potentially updated items list
-            if (updatedItems.length > 0) {
-              const allPurchased = updatedItems.every(item => item.purchased);
-              const anyPurchased = updatedItems.some(item => item.purchased);
-
-              if (allPurchased) {
-                newStatus = 'completed';
-              } else if (anyPurchased) {
-                newStatus = 'opened'; // Or 'in_progress', ensure consistency later
-              } else {
-                newStatus = 'new';
-              }
-            } else {
-              // If no items left, maybe set status to 'new' or keep as is?
-              newStatus = 'new'; // Or prevDetails.status
-            }
-
-            statusChanged = newStatus !== prevDetails.status;
-
-            // IMPORTANT: DO NOT update the database from here.
-            // Only update the local state.
-            return {
-              ...prevDetails,
-              items: updatedItems,
-              status: newStatus // Update local status
-            };
           });
         }
       )
+      .subscribe((status) => {
+        console.log(`[REALTIME] Items channel subscription status: ${status}`);
+      });
+    
+    // Separate channel for list status updates
+    const channelB = supabase
+      .channel(`list-status-${listId}`)
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE', // Only listen to UPDATE for lists
+          event: 'UPDATE',
           schema: 'public',
           table: 'lists',
           filter: `id=eq.${listId}`
         },
         (payload) => {
-          console.log(`تحديث Realtime لـ lists للقائمة ${listId}:`, payload);
-          const updatedList = payload.new as ListDetails;
-          setListDetails(prevDetails => {
+          console.log(`[RT] Received list status update:`, payload);
+          
+          const updatedList = payload.new;
+          
+          setListDetails((prevDetails) => {
             if (!prevDetails || prevDetails.status === updatedList.status) {
-              return prevDetails; // No relevant change in status
+              return prevDetails;
             }
-            // Show toast for status change initiated by the *other* user
-            toast.info(`تم تحديث حالة القائمة إلى: ${updatedList.status}`); 
+            
+            console.log(`[RT] Updating list status from ${prevDetails.status} to ${updatedList.status}`);
+            
             return {
               ...prevDetails,
-              status: updatedList.status, 
-              updated_at: updatedList.updated_at 
+              status: updatedList.status,
+              updated_at: updatedList.updated_at
             };
           });
         }
       )
-      .subscribe((status, err) => {
-        if (status === 'SUBSCRIBED') {
-          console.log(`تم الاشتراك بنجاح في قناة الوقت الفعلي: list-updates-${listId}`);
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error(`خطأ في قناة الوقت الفعلي ${listId}:`, status, err);
-          toast.error(t('listDetails.realtimeError'));
-        }
+      .subscribe((status) => {
+        console.log(`[RT] Lists channel subscription status: ${status}`);
       });
-
-    // --- Cleanup on unmount --- 
+    
+    // Cleanup
     return () => {
-      console.log(`إلغاء اشتراك الوقت الفعلي للقائمة: ${listId}`);
-      if (channel) {
-        supabase.removeChannel(channel).catch(error => {
-          console.error('Error removing Supabase channel:', error);
-        });
-      }
+      console.log(`Removing realtime subscriptions for list: ${listId}`);
+      supabase.removeChannel(channelA);
+      supabase.removeChannel(channelB);
       clearAllToasts();
     };
   }, [listId, router, currentUser, loadListDetails, t, i18n]);
   
   // تبديل حالة الشراء للعنصر
-  const toggleItemPurchase = async (itemId: string, purchased: boolean) => {
-    if (!listDetails || isUpdating) return;
+  const toggleItemPurchase = async (itemId: string, newPurchasedStatus: boolean) => {
+    const currentItem = listDetails?.items.find(i => i.id === itemId);
+    if (!listDetails || !currentItem || isUpdating) return;
 
-    setIsUpdating(true);
-    const newPurchasedStatus = !purchased;
+    console.log(`[toggleItemPurchase] Attempting to set item ${itemId} purchased status to: ${newPurchasedStatus}. User: ${currentUser}`);
+      setIsUpdating(true);
     const originalListDetails = JSON.parse(JSON.stringify(listDetails)); // Deep copy for revert
     const optimisticOldStatus = listDetails.status;
     let optimisticNewStatus = optimisticOldStatus;
 
     // Optimistic UI Update for item
+    console.log('[toggleItemPurchase] Applying optimistic UI update...');
     setListDetails(prevDetails => {
       if (!prevDetails) return null;
       const updatedItems = prevDetails.items.map(item =>
         item.id === itemId ? { ...item, purchased: newPurchasedStatus, purchased_at: newPurchasedStatus ? new Date().toISOString() : null } : item
       );
-      // Optimistic status update
+      // --- CORRECTED STATUS LOGIC --- 
       const newCompletedCount = updatedItems.filter(i => i.purchased).length;
       const totalItems = updatedItems.length;
-      if (totalItems > 0) {
-          if (newCompletedCount === totalItems) optimisticNewStatus = 'completed';
-          else if (newCompletedCount > 0 && prevDetails.status === 'new') optimisticNewStatus = 'opened';
-          else optimisticNewStatus = prevDetails.status;
-      } else {
-          optimisticNewStatus = 'new';
+      const oldStatusForLog = prevDetails.status; // Store old status for logging
+
+      if (totalItems === 0) {
+          optimisticNewStatus = 'new'; // Empty list is always new
+      } else if (newCompletedCount === totalItems) {
+          optimisticNewStatus = 'completed'; // All items purchased
+      } else if (newCompletedCount > 0) {
+          optimisticNewStatus = 'opened'; // Some items purchased, but not all
+      } else { // newCompletedCount === 0 and totalItems > 0
+          optimisticNewStatus = 'new'; // No items purchased
       }
+      // --- END CORRECTED STATUS LOGIC ---
+
+      console.log(`[toggleItemPurchase] Optimistic status change: ${oldStatusForLog} -> ${optimisticNewStatus}`);
       return { ...prevDetails, items: updatedItems, status: optimisticNewStatus };
     });
 
     try {
-      // Update item in database
+      console.log(`[toggleItemPurchase] Sending DB update for item ${itemId} with purchased=${newPurchasedStatus}...`);
+      // Update item in database using the newPurchasedStatus parameter directly
       const { error: itemError } = await supabase
         .from('items')
-        .update({ 
+        .update({
             purchased: newPurchasedStatus,
             purchased_at: newPurchasedStatus ? new Date().toISOString() : null,
             updated_at: new Date().toISOString()
          })
         .eq('id', itemId);
+        
+      // Log the outcome of the database update attempt
+      if (itemError) {
+        console.error('[toggleItemPurchase] DB update FAILED:', itemError);
+        throw new Error(itemError.message); // Re-throw to be caught by the catch block
+      } else {
+        console.log(`[toggleItemPurchase] DB update SUCCEEDED for item ${itemId}.`);
+      }
 
-      if (itemError) throw new Error(itemError.message); 
-
-      // If item toggle potentially changed list status, update list status
-      if (optimisticNewStatus !== optimisticOldStatus) {
+      // If item toggle potentially changed list status, update list status in DB
+      // Only if the current user is the recipient (not the sender/creator)
+      if (optimisticNewStatus !== optimisticOldStatus && currentUser === listDetails.recipient_username) {
+          console.log(`[toggleItemPurchase] Recipient changing status, attempting DB update for list status: ${optimisticNewStatus}`);
           const { error: statusError } = await supabase
-              .from('lists')
+          .from('lists')
               .update({ status: optimisticNewStatus, updated_at: new Date().toISOString() })
               .eq('id', listDetails.id);
           if (statusError) {
-             console.warn("[toggleItemPurchase] Failed to update list status optimistically:", statusError.message);
+             // This is less critical, maybe log a warning instead of reverting UI? 
+             console.warn("[toggleItemPurchase] Failed to update list status in DB (non-critical):", statusError.message);
+             // Consider if reverting the item toggle is desired if list status update fails
+        } else {
+             console.log(`[toggleItemPurchase] List status updated successfully in DB.`);
           }
       }
+      // If the sender/creator is updating items, still update the UI but avoid triggering a status change in DB
+      else if (optimisticNewStatus !== optimisticOldStatus && currentUser === listDetails.creator_username) {
+        console.log(`[toggleItemPurchase] Sender is changing item status, status update in UI only (no DB update to avoid notification).`);
+      }
 
-      toast.success(newPurchasedStatus ? t('listDetails.itemMarkedPurchased') : t('listDetails.itemMarkedNotPurchased'), 1500);
+      // Only show success toast if DB update didn't throw an error
+      console.log('[toggleItemPurchase] Showing success toast.');
+      // Use the newPurchasedStatus parameter for the toast message
+      // toast.success(newPurchasedStatus ? t('listDetails.itemMarkedPurchased') : t('listDetails.itemMarkedNotPurchased'), 1500);
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('[toggleItemPurchase] Error:', error);
-      toast.error(t('listDetails.itemUpdateError', { errorMessage: error.message }));
-      // Revert optimistic update on error using the deep copied original state
+      
+      // Revert to original state
       setListDetails(originalListDetails);
+      
+      toast.error(t('listDetails.itemUpdateError'));
     } finally {
       setIsUpdating(false);
     }
@@ -595,23 +757,80 @@ export default function ListDetailsPage() {
           list_id: listId,
           name: newItemName.trim(),
           purchased: false,
-          category: ''
+          category: '' // Assign category later if needed
         })
         .select()
         .single();
       
       if (error) throw error;
       
-      // تحديث واجهة المستخدم
-      setListDetails({
-        ...listDetails,
-        items: [...listDetails.items, newItem]
+      // -- START: Correct Status Logic --
+      const originalStatus = listDetails.status; // Store status before optimistic update
+
+      // تحديث واجهة المستخدم مع حساب الحالة الصحيحة
+      setListDetails(prevDetails => {
+        if (!prevDetails) return null; 
+        
+        // Add the new item to the items array for calculation
+        const updatedItems = [...prevDetails.items, newItem];
+        
+        // Calculate the correct status based on purchase state of all items
+        const newCompletedCount = updatedItems.filter(i => i.purchased).length;
+        const totalItems = updatedItems.length;
+        let newTargetStatus;
+        
+        if (totalItems === 0) {
+          newTargetStatus = 'new'; // Empty list is always new
+        } else if (newCompletedCount === totalItems) {
+          newTargetStatus = 'completed'; // All items purchased
+        } else if (newCompletedCount > 0) {
+          newTargetStatus = 'opened'; // Some items purchased, but not all
+        } else { // newCompletedCount === 0 and totalItems > 0
+          newTargetStatus = 'new'; // No items purchased
+        }
+        
+        console.log(`[addItemToList] Calculated status: ${newTargetStatus}, originalStatus: ${originalStatus}`);
+        
+        return {
+          ...prevDetails,
+          items: updatedItems,
+          status: newTargetStatus // Set status based on calculation
+        };
       });
+
+      // Rest of status update DB logic remains the same
+      const currentStatus = listDetails.status; // Get the status before setListDetails updates it
+      
+      // Attempt to update list status in DB *if* it was different before optimistic update
+      // AND if the current user is the recipient of the list (not the sender/creator)
+      // This prevents notifications when the sender adds products
+      if (currentStatus !== 'new' && currentUser === listDetails.recipient_username) { 
+        try {
+            console.log(`[addItemToList] Attempting DB update for list status: new`);
+            const { error: statusError } = await supabase
+                .from('lists')
+                .update({ status: 'new', updated_at: new Date().toISOString() })
+                .eq('id', listId);
+            if (statusError) {
+                console.warn("[addItemToList] Failed to update list status in DB (non-critical):", statusError.message);
+            } else {
+                console.log(`[addItemToList] List status updated successfully in DB.`);
+            }
+        } catch (statusUpdateError) {
+            console.error("[addItemToList] Error during list status DB update:", statusUpdateError);
+            // Consider if UI needs revert for status, probably not critical
+        }
+      }
+      // If the sender/creator is adding products, still update the UI but avoid triggering a status change in DB
+      else if (currentStatus !== 'new' && currentUser === listDetails.creator_username) {
+        console.log(`[addItemToList] Sender is adding product, status update in UI only (no DB update to avoid notification).`);
+      }
+      // -- END: Update Status Logic --
       
       // --- إنشاء إشعار لمستلم القائمة (REMOVED) --- 
       
       setNewItemName('');
-      toast.success(t('listDetails.itemAddedSuccess'));
+      // toast.success(t('listDetails.itemAddedSuccess'));
     } catch (error) {
       console.error('Error adding item:', error);
       toast.error(t('listDetails.addItemError'));
@@ -625,6 +844,9 @@ export default function ListDetailsPage() {
     if (!listDetails || isUpdating) return;
     
     setIsUpdating(true);
+    const originalListDetails = JSON.parse(JSON.stringify(listDetails)); // Deep copy for revert
+    const originalStatus = listDetails.status;
+    let newStatus = originalStatus;
     
     try {
       // حذف المنتج من قاعدة البيانات
@@ -643,15 +865,53 @@ export default function ListDetailsPage() {
       setListDetails(prev => {
         if (!prev) return prev;
         
+        // Get updated items after removing the deleted item
+        const updatedItems = prev.items.filter(item => item.id !== itemId);
+        
+        // Recalculate status based on updated items
+        const newCompletedCount = updatedItems.filter(i => i.purchased).length;
+        const totalItems = updatedItems.length;
+        
+        if (totalItems === 0) {
+          newStatus = 'new'; // Empty list is always new
+        } else if (newCompletedCount === totalItems) {
+          newStatus = 'completed'; // All items purchased
+        } else if (newCompletedCount > 0) {
+          newStatus = 'opened'; // Some items purchased, but not all
+        } else { // newCompletedCount === 0 and totalItems > 0
+          newStatus = 'new'; // No items purchased
+        }
+        
+        console.log(`[deleteItem] Status after deletion: ${prev.status} -> ${newStatus}`);
+        
         return {
           ...prev,
-          items: prev.items.filter(item => item.id !== itemId)
+          items: updatedItems,
+          status: newStatus
         };
       });
       
-      toast.success(t('listDetails.itemDeletedSuccess', { itemName }));
+      // If status changed, update it in the database, but only if the current user is the recipient
+      if (newStatus !== originalStatus && currentUser === listDetails.recipient_username) {
+        console.log(`[deleteItem] Recipient changing status, updating list status in DB to: ${newStatus}`);
+        const { error: statusError } = await supabase
+          .from('lists')
+          .update({ status: newStatus, updated_at: new Date().toISOString() })
+          .eq('id', listDetails.id);
+          
+        if (statusError) {
+          console.warn('[deleteItem] Failed to update list status after item deletion:', statusError);
+        }
+      }
+      // If the sender/creator is deleting items, only update status in UI, not in DB
+      else if (newStatus !== originalStatus && currentUser === listDetails.creator_username) {
+        console.log(`[deleteItem] Sender is deleting item, status update in UI only (no DB update to avoid notification).`);
+      }
+      
+      // toast.success(t('listDetails.itemDeletedSuccess', { name: itemName }));
     } catch (error) {
-      console.error('Error deleting item:', error);
+      console.error('Error in deleteItem:', error);
+      setListDetails(originalListDetails); // Revert to original state on error
       toast.error(t('listDetails.deleteItemError'));
     } finally {
       setIsUpdating(false);
@@ -725,7 +985,7 @@ export default function ListDetailsPage() {
   const listTitle = listDetails.name || t('lists.untitledListFallback', { 
     name: listDetails.creator_username === currentUser ? listDetails.recipient_username : listDetails.creator_username 
   });
-
+  
   // تحديد ما إذا كان المستخدم الحالي هو منشئ القائمة أو مستلمها
   const isCreator = currentUser === listDetails.creator_username;
   const isRecipient = currentUser === listDetails.recipient_username;
@@ -741,6 +1001,7 @@ export default function ListDetailsPage() {
           </Badge>
         );
       case 'opened':
+      case 'in_progress':
         return (
           <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300 flex items-center gap-1">
             <Package className="h-3 w-3" />
@@ -755,6 +1016,7 @@ export default function ListDetailsPage() {
           </Badge>
         );
       default:
+        console.warn(`[renderStatusBadge] Encountered unexpected status: ${status}`);
         return (
           <Badge className="bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
             {status}
@@ -767,10 +1029,10 @@ export default function ListDetailsPage() {
   const completionPercentage = listDetails.items.length > 0
     ? Math.round((listDetails.items.filter(item => item.purchased).length / listDetails.items.length) * 100)
     : 0;
-
+  
   return (
     <div className="container mx-auto p-4 pb-20">
-      <Header 
+        <Header 
         title={listTitle}
         showBackButton={true}
         shareCode={listDetails.share_code} 
@@ -915,7 +1177,7 @@ export default function ListDetailsPage() {
                             {/* Check Button */}
                             <Button
                               onClick={() => toggleItemPurchase(item.id, !item.purchased)}
-                              disabled={isUpdating}
+                              disabled={isUpdating || !isRecipient}
                               variant={item.purchased ? "default" : "outline"}
                               size="sm"
                               className={`rounded-full h-8 w-8 p-0 flex items-center justify-center shrink-0 transition-colors duration-200 ease-in-out ${ 

@@ -49,17 +49,17 @@
     "confirmPasswordLabel": "تأكيد كلمة المرور",
     "confirmPasswordPlaceholder": "أعد إدخال كلمة المرور",
     "passwordMismatch": "كلمتا المرور غير متطابقتين.",
-    "usernameTaken": "اسم المستخدم هذا مأخوذ بالفعل.",
+    "usernameTaken": "اسم المستخدم محجوز بالفعل.",
     "usernameCheckError": "حدث خطأ أثناء التحقق من اسم المستخدم.",
-    "usernameCheckPendingOrRunning": "جاري التحقق من اسم المستخدم...",
-    "registerSuccessCheckEmail": "تم التسجيل بنجاح! يرجى التحقق من بريدك الإلكتروني لتفعيل الحساب.",
+    "usernameCheckPendingOrRunning": "جاري التحقق من اسم المستخدم أو لم يتم التحقق بعد.",
+    "registerSuccessCheckEmail": "تم إنشاء الحساب بنجاح. قد تحتاج إلى التحقق من بريدك الإلكتروني.",
     "googleSignInError": "حدث خطأ أثناء تسجيل الدخول باستخدام Google.",
-    "loginFailedGeneric": "فشل تسجيل الدخول. يرجى التحقق من اسم المستخدم/البريد الإلكتروني وكلمة المرور.",
+    "loginFailedGeneric": "فشل تسجيل الدخول. يرجى التحقق من بيانات الاعتماد.",
     "signupViewPlaceholder": "واجهة إنشاء الحساب قيد الإنشاء...",
     "completeProfileTitle": "أكمل ملفك الشخصي",
     "completeProfileDescription": "اختر اسم مستخدم فريد للمتابعة",
     "chooseUsernameLabel": "اختر اسم المستخدم",
-    "usernameHint": "مسموح فقط بالحروف والأرقام الإنجليزية والشرطة السفلية (_)",
+    "usernameHint": "الأحرف الإنجليزية والأرقام والشرطة السفلية فقط",
     "saveUsernameButton": "حفظ اسم المستخدم والمتابعة",
     "usernameSetSuccess": "تم تعيين اسم المستخدم بنجاح!",
     "usernameSetFailed": "فشل تعيين اسم المستخدم.",
@@ -81,6 +81,17 @@
     "lists": "القوائم",
     "contacts": "الأشخاص",
     "settings": "الإعدادات"
+  },
+  "header": {
+    "contacts": "جهات الاتصال",
+    "lists": "قوائم التسوق",
+    "profile": "الملف الشخصي",
+    "createList": "قائمة جديدة",
+    "listDetails": "تفاصيل القائمة",
+    "notifications": "الإشعارات",
+    "linkCopiedSuccess": "تم نسخ الرابط إلى الحافظة!",
+    "linkCopiedError": "فشل نسخ الرابط.",
+    "shareListAriaLabel": "مشاركة القائمة"
   },
   "home": {
     "welcome": "مرحباً، {{name}}",
@@ -375,7 +386,10 @@
     "resetZoomTooltip": "إعادة ضبط",
     "displayedImageAlt": "صورة معروضة",
     "listStatusUpdatedSuccess": "تم تحديث حالة القائمة بنجاح",
-    "updateListStatusError": "حدث خطأ أثناء تحديث حالة القائمة"
+    "updateListStatusError": "حدث خطأ أثناء تحديث حالة القائمة",
+    "markAsPurchased": "تحديد كمشترى",
+    "markAsNotPurchased": "إلغاء التحديد",
+    "itemMarkedPurchased": "تم تحديد {{itemName}} كمشترى."
   },
   "settings": {
     "pageTitle": "الإعدادات",
@@ -399,5 +413,24 @@
     "dark": "داكن",
     "system": "النظام",
     "toggleTheme": "تبديل الثيم"
+  },
+  "shareLink": {
+    "shareAction": "مشاركة القائمة",
+    "shareDialogTitle": "مشاركة القائمة",
+    "shareDescription": "انسخ الرابط وشاركه للسماح للآخرين بالوصول إلى هذه القائمة.",
+    "generatingLink": "جارٍ إنشاء الرابط...",
+    "copyLinkButton": "نسخ الرابط",
+    "linkCopied": "تم نسخ الرابط!",
+    "shareError": "فشل إنشاء رابط المشاركة.",
+    "accessViaLink": "الوصول عبر رابط المشاركة",
+    "invalidOrExpired": "رابط المشاركة غير صالح أو منتهي الصلاحية.",
+    "invalidOrExpiredRedirect": "رابط المشاركة غير صالح أو منتهي الصلاحية. سيتم توجيهك إلى قوائمك.",
+    "accessRecordErrorRedirect": "حدث خطأ أثناء تسجيل الوصول للقائمة. سيتم توجيهك إلى قوائمك.",
+    "redirectHandlingError": "حدث خطأ أثناء معالجة رابط المشاركة. سيتم توجيهك إلى قوائمك.",
+    "sharedListTitle": "تمت مشاركة قائمة معك!",
+    "loginButton": "تسجيل الدخول لعرض القائمة",
+    "registerButton": "إنشاء حساب لعرض القائمة",
+    "loginPrompt": "سجل الدخول أو أنشئ حسابًا جديدًا للوصول إلى القائمة المشتركة.",
+    "itemsTitle": "محتويات القائمة:"
   }
 } 
